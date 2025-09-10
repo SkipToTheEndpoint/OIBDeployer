@@ -44,10 +44,11 @@ npm install
 Create a `.env.local` file in the project root:
 
 ```env
-VITE_CLIENT_ID=your-app-registration-client-id-here
+VITE_ENTRA_CLIENT_ID=your-app-registration-client-id-here
+VITE_ENTRA_TENANT_ID=your-tenant-id-here
 ```
 
-Replace `your-app-registration-client-id-here` with the Application (client) ID from your Entra ID App Registration.
+Replace `your-app-registration-client-id-here` with the Application (client) ID from your Entra ID App Registration. The app is single-tenant by default, so `VITE_ENTRA_TENANT_ID` sets a tenant-specific authority endpoint. You can also set `VITE_CLIENT_ID` for backward compatibility.
 
 ### 3. Run Development Server
 
@@ -105,4 +106,6 @@ The built files will be in the `dist` directory.
 
 | Variable | Description | Required |
 |----------|-------------|----------|
-| `VITE_CLIENT_ID` | Entra ID App Registration Application (client) ID | Yes |
+| `VITE_ENTRA_CLIENT_ID` | Entra ID App Registration Application (client) ID | Yes |
+| `VITE_ENTRA_TENANT_ID` | Entra tenant ID for authority (use for single-tenant apps) | Yes (if single-tenant) |
+| `VITE_CLIENT_ID` | Back-compat client ID variable | Optional |
