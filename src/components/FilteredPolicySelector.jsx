@@ -142,6 +142,7 @@ const FilteredPolicySelector = ({
   };
 
   const handlePolicyToggle = (policy) => {
+    console.warn('Policy toggle clicked:', policy);
     const policyKey = `${policy.osType}-${policy.policyType}-${policy.name}`;
     
     // Update the policy in processedPolicies
@@ -149,6 +150,7 @@ const FilteredPolicySelector = ({
     const targetPolicy = updatedPolicies[policy.osType][policy.policyType].find(p => p.name === policy.name);
     if (targetPolicy) {
       targetPolicy.selected = !targetPolicy.selected;
+      console.warn('Policy selected state changed to:', targetPolicy.selected);
     }
 
     // Update selected policies list
@@ -156,6 +158,7 @@ const FilteredPolicySelector = ({
       ? [...selectedPolicies, { ...policy, selected: true }]
       : selectedPolicies.filter(p => `${p.osType}-${p.policyType}-${p.name}` !== policyKey);
     
+    console.warn('Updated selected policies:', updatedSelected);
     setSelectedPolicies(updatedSelected);
     onPolicySelection(updatedSelected);
   };
@@ -214,6 +217,18 @@ const FilteredPolicySelector = ({
   const selectedCount = selectedPolicies.length;
   const newPoliciesCount = filteredPolicies.filter(p => p.status === 'new').length;
   const existingPoliciesCount = filteredPolicies.filter(p => p.status === 'existing').length;
+
+  // Add debugging
+  console.warn('FilteredPolicySelector render:', {
+    selectedPolicies: selectedCount,
+    filteredPolicies: filteredPolicies.length,
+    newPoliciesCount,
+    existingPoliciesCount,
+    availablePolicies: availablePolicies ? Object.keys(availablePolicies).length : 0,
+    selectedPolicyTypes,
+    selectedOSTypes,
+    isLoading
+  });
 
   return (
     <div className="filtered-policy-selector">
@@ -439,7 +454,10 @@ const FilteredPolicySelector = ({
           {selectedPolicies.length > 0 && (
             <button 
               className="btn-primary"
-              onClick={() => onDeploy(selectedPolicies)}
+              onClick={() => {
+                console.warn('Deploy button clicked with policies:', selectedPolicies);
+                onDeploy(); // Call without arguments, like PolicySelector does
+              }}
               disabled={isLoading}
             >
               Deploy Selected Policies ({selectedPolicies.length})

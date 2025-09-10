@@ -813,32 +813,31 @@ class GraphAPI {
     async deployPoliciesBatchWithProgress(policiesData, progressCallback) {
         const results = [];
         const total = policiesData.length;
+        console.log(`Starting deployment of ${total} policies...`);
         
         for (let i = 0; i < policiesData.length; i++) {
             const policyData = policiesData[i];
             const policyName = policyData.fileName || policyData.displayName || 'Unknown Policy';
+            
+            console.log(`Deploying policy ${i + 1}/${total}: ${policyName}`);
             
             // Update progress
             if (progressCallback) {
                 progressCallback(i, total, policyName);
             }
             
-            try {
-                const result = await this.deployPolicy(policyData);
-                results.push({
-                    success: true,
-                    policyName: result.policyName,
-                    fileName: result.fileName,
-                    response: result.response
-                });
-            } catch (error) {
-                results.push({
-                    success: false,
-                    policyName: policyName,
-                    fileName: policyData.fileName,
-                    error: error.message
-                });
-            }
+            // Deploy policy - this function returns a result object, doesn't throw
+            const result = await this.deployPolicy(policyData);
+            console.log(`Policy ${policyName} deployment result:`, result);
+            
+            // Add the result with index for UI matching
+            results.push({
+                ...result,
+                index: i, // Add index for DeploymentProgress component matching
+                message: result.message || (result.success ? 
+                    `Successfully deployed: ${result.policyName}` : 
+                    `Failed to deploy: ${result.policyName || policyName}`)
+            });
         }
         
         // Final progress update
@@ -846,6 +845,7 @@ class GraphAPI {
             progressCallback(total, total, 'Deployment complete');
         }
         
+        console.log(`Deployment batch completed. Total results: ${results.length}`);
         return results;
     }
 

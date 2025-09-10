@@ -295,8 +295,11 @@ function App() {
   };
 
   const handleComparisonPolicySelection = (policies) => {
+    console.warn('handleComparisonPolicySelection called with:', policies);
     setSelectedPolicies(policies);
     setCurrentStep('deploy');
+    // Actually start the deployment
+    handleDeployment(policies);
   };
 
   const handleWizardBack = () => {
@@ -325,9 +328,14 @@ function App() {
   };
 
   const handleDeployment = async (policiesToDeploy = null) => {
+    console.warn('handleDeployment called with:', policiesToDeploy);
     const policies = policiesToDeploy || selectedPolicies;
     
+    console.warn('Starting deployment with policies:', policies);
+    console.warn('Number of policies to deploy:', policies.length);
+    
     if (policies.length === 0) {
+      console.warn('No policies selected, returning early');
       setError('Please select at least one policy to deploy');
       return;
     }
@@ -335,7 +343,8 @@ function App() {
     try {
       setIsLoading(true);
       setError(null);
-      // Don't change step - keep on 'select' to preserve UI state
+      // Change step to 'deploy' to show deployment progress
+      setCurrentStep('deploy');
       setDeploymentResults([]);
 
       // Initialize deployment progress
@@ -368,8 +377,15 @@ function App() {
               currentStep: 'loading-content'
             }));
 
-            // Load policy content from GitHub only when deploying
-            const content = await githubAPI.getPolicyContent(policy);
+            // Check if policy already has content (from new deployment) or needs to be loaded (from existing deployment)
+            let content;
+            if (policy.policy) {
+              // Policy already has content loaded (from new deployment flow)
+              content = policy.policy;
+            } else {
+              // Policy needs content loaded from GitHub (from existing deployment flow)
+              content = await githubAPI.getPolicyContent(policy);
+            }
             
             // Check if policy is already deployed using improved matching
             const existingPolicy = await graphAPI.checkPolicyExists(
@@ -429,6 +445,7 @@ function App() {
       const results = await graphAPI.deployPoliciesBatchWithProgress(
         policiesWithContent,
         (completed, total, currentPolicyName) => {
+          console.log(`Deployment progress: ${completed}/${total} - ${currentPolicyName}`);
           setDeploymentProgress(prev => ({
             ...prev,
             currentStep: 'deploying',
@@ -438,6 +455,7 @@ function App() {
           }));
         }
       );
+      console.log('Deployment completed, results:', results);
       setDeploymentResults(results);
 
       // Reset deployment progress
@@ -461,9 +479,8 @@ function App() {
         setError(`Deployment completed with ${failureCount} failures. See results for details.`);
       }
 
-      // Show results modal instead of changing step
-      setCurrentStep('select');
-      setShowResultsModal(true);
+      // Keep step as 'deploy' to show results in DeploymentProgress component
+      // The component will show actions to go back when showActions is true
     } catch (error) {
       console.error('Deployment failed:', error);
       setError('Deployment failed: ' + error.message);
@@ -503,6 +520,17 @@ function App() {
     sessionStorage.removeItem('oib-latest-data');
     await loadLatestVersionAndPolicies();
   };
+
+  // Debug current state
+  console.warn('App render state:', {
+    currentStep,
+    wizardStep,
+    deploymentType,
+    isAuthenticated,
+    showDocumentation,
+    selectedPolicyTypes,
+    selectedOSTypes
+  });
 
   return (
     <div className={`app app-step-${currentStep}`}>
@@ -712,6 +740,8 @@ function App() {
             selectedPolicies={selectedPolicies}
             results={deploymentResults}
             isLoading={isLoading}
+            showActions={!isLoading && deploymentResults.length > 0}
+            onNewDeployment={handleNewDeployment}
           />
         )}
       </main>

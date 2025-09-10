@@ -204,8 +204,12 @@ const ComparisonDashboard = ({
   };
 
   const handleDeploySelected = () => {
+    console.warn('ComparisonDashboard: Deploy button clicked');
+    console.warn('Selected policies for deployment:', selectedForDeployment);
     if (selectedForDeployment.length > 0) {
       onSelectPolicies(selectedForDeployment);
+    } else {
+      console.warn('No policies selected for deployment');
     }
   };
 
