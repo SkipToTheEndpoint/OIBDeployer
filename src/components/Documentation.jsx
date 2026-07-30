@@ -29,7 +29,8 @@ const Documentation = ({ onBack }) => {
               <div className="step-content">
                 <h3>Choose Deployment Type</h3>
                 <p>Select "New Deployment" if you're deploying the OIB for the first time.</p>
-                <p>Select "Existing Deployment" if you've already deployed the OIB and want to validate it against the latest version.</p>
+                <p>Select "Existing Deployment" if you've already deployed the OIB and want to compare it against the latest version, then deploy any missing or outdated policies.</p>
+                <p>Select "Policy Validation" to check your already-deployed OIB policies for per-setting configuration drift against the baseline &mdash; this is read-only and makes no changes to your tenant.</p>
               </div>
             </div>
             <div className="step">
@@ -42,9 +43,10 @@ const Documentation = ({ onBack }) => {
             <div className="step">
               <span className="step-number">4</span>
               <div className="step-content">
-                <h3>Deploy or Assess Policies</h3>
-                <p>New: Select the policies you wish to deploy, and deploy them quickly and easily!</p>
-                <p>Existing: Validate your policies against the latest version, and deploy new or updated policies.</p>
+                <h3>Deploy, Compare, or Validate</h3>
+                <p><strong>New:</strong> Answer a couple of quick questions about your tenant's licensing and Windows Update strategy (so irrelevant policies can be filtered out), then select and deploy the policies you want.</p>
+                <p><strong>Existing:</strong> Compare your tenant against the latest OIB version, then deploy any missing or outdated policies.</p>
+                <p><strong>Validation:</strong> Review a per-setting drift report for each matched policy against the OIB baseline.</p>
               </div>
             </div>
           </div>
@@ -86,8 +88,32 @@ const Documentation = ({ onBack }) => {
           <div className="faq-item">
             <h3>Will this duplicate existing policies?</h3>
             <p>
-              The tool checks for existing policies by name before deployment. If a policy with the same name already exists and you select 
-              it anyway, a policy with a duplicate name will be created.
+              The tool primarily matches existing tenant policies using a hidden OIBID reference embedded in the policy description (available on OIB v3.8+ baselines), 
+              falling back to name-based matching for older baselines without this metadata. If no match is found and you select the policy anyway, a policy with a 
+              duplicate name could be created.
+            </p>
+          </div>
+
+          <div className="faq-item">
+            <h3>Why are some policy types missing or greyed out during New Deployment?</h3>
+            <p>
+              New Deployment asks a few quick questions about your tenant (Business Premium vs Microsoft 365 E3/E5/E7 licensing, whether Defender for Endpoint is your 
+              primary antivirus, and whether you use Autopatch) so it can filter out policies you can't use or that would conflict with your setup:
+            </p>
+            <ul>
+              <li>Policies requiring a Windows Enterprise entitlement (e.g. Driver Update Policies) are greyed out on Business Premium tenants</li>
+              <li>Policies requiring Defender for Endpoint are hidden by default if it isn't your primary antivirus</li>
+              <li>Update Policies and Driver Update Policies are greyed out if you're using Autopatch, since it manages Windows Update itself</li>
+            </ul>
+            <p>Individually-gated policies (not whole categories) can still be revealed via the "Show them anyway" toggle if you want to override the recommendation.</p>
+          </div>
+
+          <div className="faq-item">
+            <h3>What is Policy Validation?</h3>
+            <p>
+              Policy Validation is a read-only flow that compares each matched policy's individual settings against the OIB baseline, highlighting any drift: 
+              mismatched values, settings present in the baseline but missing from the tenant, or extra settings present in the tenant but not the baseline. 
+              It currently supports Settings Catalog, Endpoint Security, and Compliance policies. No changes are ever made to your tenant during validation.
             </p>
           </div>
 
@@ -184,7 +210,7 @@ const Documentation = ({ onBack }) => {
           <div className="tech-info">
             <h3>Policy Sources</h3>
             <p>
-              All policies are loaded automatically from the 
+              All policies are loaded automatically from the  
               <a href="https://github.com/SkipToTheEndpoint/OpenIntuneBaseline" target="_blank" rel="noopener noreferrer">
                 OpenIntuneBaseline GitHub Repo<ExternalLink size={14} /> via the GitHub API.
               </a>.
@@ -198,7 +224,8 @@ const Documentation = ({ onBack }) => {
               <a href="https://github.com/Micke-K/IntuneManagement" target="_blank" rel="noopener noreferrer">
                 IntuneManagement PowerShell module <ExternalLink size={14} />
               </a>, 
-              ensuring compatibility with existing workflows and policy formats.
+              ensuring compatibility with existing workflows and policy formats. Enhanced matching (via OIBID) and licensing-based filtering require a 
+              <code>PolicyManifest.json</code> file, only present on OIB v3.8+ branches &mdash; older branches still work via name-based matching, without licensing filters.
             </p>
           </div>
 
@@ -261,9 +288,9 @@ const Documentation = ({ onBack }) => {
           <div className="info-box">
             <Info size={16} />
             <div>
-              <p><strong>OIB Deployer Version:</strong> 1.1.0</p>
-              <p><strong>Last Updated:</strong> May 2026</p>
-              <p><strong>Compatible with:</strong> OpenIntuneBaseline v3.0+</p>
+              <p><strong>OIB Deployer Version:</strong> 1.2.0</p>
+              <p><strong>Last Updated:</strong> July 2026</p>
+              <p><strong>Compatible with:</strong> OpenIntuneBaseline v3.0+ (OIBID matching and licensing-based filtering require v3.8+)</p>
             </div>
           </div>
         </section>

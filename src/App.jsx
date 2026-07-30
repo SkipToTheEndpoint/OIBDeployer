@@ -12,6 +12,7 @@ import DeploymentTypeWizard from './components/DeploymentTypeWizard';
 import QuickDeployWizard from './components/QuickDeployWizard';
 import ComparisonDashboard from './components/ComparisonDashboard';
 import OSSelectionWizard from './components/OSSelectionWizard';
+import ValidationDashboard from './components/ValidationDashboard';
 import authService from './utils/auth';
 import graphAPI from './utils/graph-api';
 import githubAPI from './utils/github-api';
@@ -53,12 +54,20 @@ function App() {
   }, [darkMode]);
 
   // New wizard state variables
-  const [deploymentType, setDeploymentType] = useState(null); // 'new' or 'existing'
+  const [deploymentType, setDeploymentType] = useState(null); // 'new', 'existing', or 'validate'
   const [selectedPolicyTypes, setSelectedPolicyTypes] = useState([]); // ['compliance', 'endpoint-security', etc.]
   const [selectedOSTypes, setSelectedOSTypes] = useState([]); // ['WINDOWS', 'MACOS']
+  const [tenantLicensing, setTenantLicensing] = useState(null); // 'business-premium' | 'e3-e5-e7'
+  const [usingDefenderAV, setUsingDefenderAV] = useState(null); // true | false
   const [wizardStep, setWizardStep] = useState('deployment-type'); // wizard sub-steps
   const [availablePolicies, setAvailablePolicies] = useState({});
   const [latestVersion, setLatestVersion] = useState(null);
+
+  // Validation state
+  const [validationResults, setValidationResults] = useState(new Map());
+  const [isValidating, setIsValidating] = useState(false);
+  const [validatingPolicy, setValidatingPolicy] = useState(null);
+  const [comparisonData, setComparisonData] = useState(null);
 
   useEffect(() => {
     initializeApp();
@@ -153,7 +162,7 @@ function App() {
     setDeploymentType(type);
     if (type === 'new') {
       setWizardStep('policy-types');
-    } else if (type === 'existing') {
+    } else if (type === 'existing' || type === 'validate') {
       setWizardStep('os-selection');
     }
   };
@@ -254,6 +263,8 @@ function App() {
   const handlePolicyTypesSelection = (selection) => {
     setSelectedPolicyTypes(selection.policyTypes);
     setSelectedOSTypes(selection.osTypes);
+    setTenantLicensing(selection.tenantLicensing ?? null);
+    setUsingDefenderAV(selection.usingDefenderAV ?? null);
     setWizardStep('policy-selection');
     // Filter available policies based on selected types and OS
     filterPoliciesByTypesAndOS(selection.policyTypes, selection.osTypes);
@@ -286,7 +297,7 @@ function App() {
       setWizardStep('deployment-type');
       setDeploymentType(null);
     } else if (wizardStep === 'comparison-dashboard') {
-      if (deploymentType === 'existing') {
+      if (deploymentType === 'existing' || deploymentType === 'validate') {
         setWizardStep('os-selection');
         setSelectedOSTypes([]);
       } else {
@@ -480,6 +491,8 @@ function App() {
     setDeploymentType(null);
     setSelectedPolicyTypes([]);
     setSelectedOSTypes([]);
+    setTenantLicensing(null);
+    setUsingDefenderAV(null);
     setCurrentStep('wizard');
     setWizardStep('deployment-type');
   };
@@ -488,6 +501,64 @@ function App() {
     if (selectedOSTypes.length > 0) {
       await loadPoliciesForSelectedOS(selectedOSTypes);
     }
+  };
+
+  const handleComparisonReady = (data) => {
+    setComparisonData(data);
+    // Pure validation flow skips the comparison dashboard UI entirely —
+    // jump straight to validation once matches are computed.
+    if (deploymentType === 'validate') {
+      setWizardStep('validation');
+    }
+  };
+
+  const handleValidationBack = () => {
+    if (deploymentType === 'validate') {
+      setWizardStep('os-selection');
+      setSelectedOSTypes([]);
+    } else {
+      setWizardStep('comparison-dashboard');
+    }
+  };
+
+  const handleValidatePolicy = async (policy) => {
+    setIsValidating(true);
+    setValidatingPolicy(policy.name);
+    try {
+      const result = await graphAPI.validatePolicySettings(policy, tenantId);
+      setValidationResults(prev => new Map(prev).set(policy.name, result));
+    } catch (error) {
+      console.error('Validation error:', error);
+      setValidationResults(prev => new Map(prev).set(policy.name, {
+        policyName: policy.name, status: 'error', error: error.message,
+        totalOib: 0, totalTenant: 0, matched: 0,
+        mismatches: [], oibOnly: [], tenantOnly: [], compliant: false,
+      }));
+    } finally {
+      setIsValidating(false);
+      setValidatingPolicy(null);
+    }
+  };
+
+  const handleValidateAll = async (policies) => {
+    setIsValidating(true);
+    for (const policy of policies) {
+      setValidatingPolicy(policy.name);
+      try {
+        const result = await graphAPI.validatePolicySettings(policy, tenantId);
+        setValidationResults(prev => new Map(prev).set(policy.name, result));
+      } catch (error) {
+        setValidationResults(prev => new Map(prev).set(policy.name, {
+          policyName: policy.name, status: 'error', error: error.message,
+          totalOib: 0, totalTenant: 0, matched: 0,
+          mismatches: [], oibOnly: [], tenantOnly: [], compliant: false,
+        }));
+      }
+      // Brief throttle to avoid Graph 429s
+      await new Promise(r => setTimeout(r, 150));
+    }
+    setIsValidating(false);
+    setValidatingPolicy(null);
   };
 
   // Refresh only tenant (Graph) policies — GitHub data stays in session cache.
@@ -721,8 +792,30 @@ function App() {
             onSelectPolicies={handleComparisonPolicySelection}
             onBack={handleWizardBack}
             onRefresh={refreshTenantPolicies}
+            onComparisonReady={handleComparisonReady}
             isLoading={isLoading}
             selectedVersion={latestVersion}
+          />
+        )}
+
+        {isAuthenticated && !showDocumentation && currentStep === 'wizard' && wizardStep === 'validation' && (
+          <ValidationDashboard
+            matchedPolicies={(() => {
+              if (!comparisonData?.byOS) return [];
+              const all = [];
+              Object.values(comparisonData.byOS).forEach(osData => {
+                all.push(...(osData.current || []));
+                all.push(...(osData.outdated || []));
+                all.push(...(osData.newer || []));
+              });
+              return all;
+            })()}
+            validationResults={validationResults}
+            onValidatePolicy={handleValidatePolicy}
+            onValidateAll={handleValidateAll}
+            isValidating={isValidating}
+            validatingPolicy={validatingPolicy}
+            onBack={handleValidationBack}
           />
         )}
 
@@ -734,6 +827,8 @@ function App() {
             selectedPolicyTypes={selectedPolicyTypes}
             selectedOSTypes={selectedOSTypes}
             selectedVersion={latestVersion}
+            tenantLicensing={tenantLicensing}
+            usingDefenderAV={usingDefenderAV}
             onBack={handleWizardBack}
             onDeploy={handleDeployment}
             isLoading={isLoading}

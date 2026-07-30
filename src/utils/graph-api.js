@@ -1175,6 +1175,156 @@ class GraphAPI {
         console.log('Defaulting to device configuration endpoint for update policy');
         return this.config.endpoints.deviceConfigurations;
     }
+
+    // ── Validation ────────────────────────────────────────────────────────────
+
+    /**
+     * Fetch all settings for a Settings Catalog (configurationPolicy) by ID.
+     * Returns the raw settings array from Graph, handling pagination.
+     * Also used for Endpoint Security policies migrated to Settings Catalog
+     * format (they live on the same configurationPolicies endpoint).
+     */
+    async getConfigurationPolicySettings(policyId) {
+        try {
+            const endpoint = `/deviceManagement/configurationPolicies/${policyId}/settings?$top=1000`;
+            logger.debug(`Fetching settings for configurationPolicy: ${policyId}`);
+
+            let allSettings = [];
+            let nextLink = `${this.config.baseUrl}${endpoint}`;
+
+            while (nextLink) {
+                const options = {
+                    method: 'GET',
+                    headers: await this.getAuthHeaders()
+                };
+
+                const response = await this.makeRequestWithRetry(nextLink, options);
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Graph API error fetching settings: ${response.status} - ${errorText}`);
+                }
+
+                const result = await response.json();
+                const items  = result.value ?? [];
+                allSettings  = allSettings.concat(items);
+                nextLink     = result['@odata.nextLink'] ?? null;
+            }
+
+            logger.debug(`Fetched ${allSettings.length} settings for policy ${policyId}`);
+            return allSettings;
+        } catch (error) {
+            logger.error(`Failed to fetch settings for policy ${policyId}:`, error);
+            throw error;
+        }
+    }
+
+    /**
+     * Fetch the full compliance policy object by ID (the cached tenant list
+     * only holds id/displayName/description — compliance settings are flat
+     * top-level properties on the full object, not a settings sub-resource).
+     */
+    async getCompliancePolicyDetail(policyId) {
+        try {
+            const endpoint = `/deviceManagement/deviceCompliancePolicies/${policyId}`;
+            logger.debug(`Fetching compliance policy detail: ${policyId}`);
+
+            const options = {
+                method: 'GET',
+                headers: await this.getAuthHeaders()
+            };
+
+            const response = await this.makeRequestWithRetry(`${this.config.baseUrl}${endpoint}`, options);
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Graph API error fetching compliance policy: ${response.status} - ${errorText}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            logger.error(`Failed to fetch compliance policy detail ${policyId}:`, error);
+            throw error;
+        }
+    }
+
+    /**
+     * Validate a matched policy's settings against the OIB baseline.
+     *
+     * @param {object} matchedPolicy  - entry from ComparisonDashboard with
+     *                                  .existingPolicy (tenant) and .downloadUrl
+     *                                  or .content (OIB)
+     * @param {string} tenantId       - current tenant ID for %OrganizationId% substitution
+     * @returns {object}  validation result (see settings-comparator.js)
+     */
+    async validatePolicySettings(matchedPolicy, tenantId) {
+        const { compareSettings, compareCompliancePolicy } = await import('./settings-comparator.js');
+
+        const policyName = matchedPolicy.name ?? matchedPolicy.existingPolicy?.displayName ?? 'Unknown';
+        const isCompliance = matchedPolicy.policyType === 'CompliancePolicies';
+
+        try {
+            // 1. Load OIB content (use cache if already downloaded)
+            const { githubAPI } = await import('./github-api.js');
+            const oibContent = await githubAPI.getPolicyContent(matchedPolicy);
+
+            // Endpoint Security policies were historically deployed via the legacy
+            // /deviceManagement/intents API (a completely different schema — no
+            // `settings` array). Modern OIB ES policies have been migrated to
+            // Settings Catalog format (@odata.type: deviceManagementConfigurationPolicy),
+            // which compares the same way as plain Settings Catalog. Guard against
+            // stray legacy-schema exports so they don't get silently mis-compared.
+            if (matchedPolicy.policyType === 'EndpointSecurity' &&
+                !oibContent?.['@odata.type']?.includes('deviceManagementConfigurationPolicy')) {
+                throw new Error('Legacy Endpoint Security (intent) format is not supported for validation');
+            }
+
+            const tenantPolicyId = matchedPolicy.existingPolicy?.id;
+            if (!tenantPolicyId) {
+                throw new Error('No tenant policy ID available for validation');
+            }
+
+            let result;
+            if (isCompliance) {
+                // Compliance policies are a flat property bag — apply tenant
+                // variable substitution to the whole object, fetch the full
+                // tenant object (list cache only has id/displayName/description),
+                // and diff key-by-key.
+                const substitutedOib = tenantId
+                    ? this.replaceTenantVariables(oibContent, tenantId)
+                    : oibContent;
+                const tenantPolicy = await this.getCompliancePolicyDetail(tenantPolicyId);
+                result = compareCompliancePolicy(substitutedOib, tenantPolicy);
+            } else {
+                // Settings Catalog (and Settings-Catalog-format Endpoint Security).
+                let oibSettings = oibContent?.settings ?? [];
+                if (tenantId && oibSettings.length > 0) {
+                    const substituted = this.replaceTenantVariables({ settings: oibSettings }, tenantId);
+                    oibSettings = substituted.settings;
+                }
+                const tenantSettings = await this.getConfigurationPolicySettings(tenantPolicyId);
+                result = compareSettings(oibSettings, tenantSettings);
+            }
+
+            return {
+                ...result,
+                policyName,
+                status: result.compliant ? 'compliant' : 'drifted',
+            };
+        } catch (error) {
+            logger.error(`Validation failed for ${policyName}:`, error);
+            return {
+                policyName,
+                status: 'error',
+                error:       error.message,
+                totalOib:    0,
+                totalTenant: 0,
+                matched:     0,
+                mismatches:  [],
+                oibOnly:     [],
+                tenantOnly:  [],
+                compliant:   false,
+            };
+        }
+    }
 }
 
 // Create singleton instance
