@@ -8,6 +8,8 @@ const FilteredPolicySelector = ({
   selectedPolicyTypes,
   selectedOSTypes,
   selectedVersion,
+  tenantLicensing,
+  usingDefenderAV,
   onBack,
   onDeploy,
   isLoading = false
@@ -16,6 +18,7 @@ const FilteredPolicySelector = ({
   const [searchFilter, setSearchFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [showGatedPolicies, setShowGatedPolicies] = useState(false);
 
   // Check if a policy from the OIB repo already exists in the tenant.
   // Pass 1: OIBID match (v3.8+ policies with a GUID in description).
@@ -43,6 +46,14 @@ const FilteredPolicySelector = ({
 
     if (matched) return { exists: true, status: 'existing', matchedPolicy: matched };
     return { exists: false, status: 'new' };
+  };
+
+  // A policy is "gated" when it requires licensing the tenant said it doesn't have
+  // (PolicyManifest.json skuRequirements/licenseRequirements) — hidden by default.
+  const isGatedByLicensing = (policy) => {
+    const gatedBySku = policy.skuRequirements === 'Enterprise' && tenantLicensing !== 'e3-e5-e7';
+    const gatedByLicense = policy.licenseRequirements === 'MDE' && usingDefenderAV !== true;
+    return gatedBySku || gatedByLicense;
   };
 
   // Map wizard policy type names to GitHub API policy type names
@@ -95,6 +106,7 @@ const FilteredPolicySelector = ({
             ...policy,
             status: matchResult.status,
             matchedPolicy: matchResult.matchedPolicy,
+            gated: isGatedByLicensing(policy),
             selected: false,
             hasContent: false
           };
@@ -103,7 +115,7 @@ const FilteredPolicySelector = ({
     });
     
     return processed;
-  }, [availablePolicies, selectedPolicyTypes, selectedOSTypes, existingPolicies]);
+  }, [availablePolicies, selectedPolicyTypes, selectedOSTypes, existingPolicies, tenantLicensing, usingDefenderAV]);
 
   // Get flattened list for filtering
   const getAllPolicies = () => {
@@ -139,7 +151,10 @@ const FilteredPolicySelector = ({
       // Status filter
       const statusMatch = statusFilter === 'all' || policy.status === statusFilter;
       
-      return searchMatch && typeMatch && statusMatch;
+      // Licensing gate — hidden unless the user chose to reveal gated policies
+      const gatedMatch = showGatedPolicies || !policy.gated;
+      
+      return searchMatch && typeMatch && statusMatch && gatedMatch;
     });
   };
 
@@ -214,6 +229,7 @@ const FilteredPolicySelector = ({
   const selectedCount = selectedPolicies.length;
   const newPoliciesCount = filteredPolicies.filter(p => p.status === 'new').length;
   const existingPoliciesCount = filteredPolicies.filter(p => p.status === 'existing').length;
+  const gatedPoliciesCount = getAllPolicies().filter(p => p.gated).length;
 
   return (
     <div className="wizard-container comparison-dashboard">
@@ -227,6 +243,16 @@ const FilteredPolicySelector = ({
           <div className="version-info">
             <span className="version-badge">Deploying from: {selectedVersion}</span>
           </div>
+        )}
+        {gatedPoliciesCount > 0 && (
+          <p className="validation-scope-note">
+            <HelpCircle size={14} />
+            {` ${gatedPoliciesCount} ${gatedPoliciesCount === 1 ? 'policy requires' : 'policies require'} licensing you indicated you don't have (Windows Enterprise or Defender for Endpoint) and ${gatedPoliciesCount === 1 ? 'is' : 'are'} hidden by default.`}
+            {' '}
+            <button type="button" className="btn-link select-all" onClick={() => setShowGatedPolicies(v => !v)}>
+              {showGatedPolicies ? 'Hide them' : 'Show them anyway'}
+            </button>
+          </p>
         )}
       </div>
 
@@ -352,8 +378,9 @@ const FilteredPolicySelector = ({
                       policy.name.toLowerCase().includes(searchFilter.toLowerCase());
                     const typeMatch = typeFilter === 'all' || policyType === mapPolicyTypeNames(typeFilter);
                     const statusMatch = statusFilter === 'all' || policy.status === statusFilter;
+                    const gatedMatch = showGatedPolicies || !policy.gated;
                     
-                    if (searchMatch && typeMatch && statusMatch) {
+                    if (searchMatch && typeMatch && statusMatch && gatedMatch) {
                       allOSPolicies.push(policyWithType);
                     }
                   });
@@ -406,7 +433,7 @@ const FilteredPolicySelector = ({
                             return (
                               <div 
                                 key={`${policy.osType}-${policy.policyType}-${policy.name}-${index}`}
-                                className={`policy-item ${isSelected ? 'selected' : ''} ${policy.status}`}
+                                className={`policy-item ${isSelected ? 'selected' : ''} ${policy.status} ${policy.gated ? 'gated' : ''}`}
                                 onClick={() => handlePolicyToggle(policy)}
                               >
                                 <div className="policy-details">

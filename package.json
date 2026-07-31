@@ -3,6 +3,7 @@
   "version": "1.1.0",
   "description": "Deploy OpenIntuneBaseline policies to Microsoft Intune tenants",
   "main": "index.html",
+  "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -27,15 +28,15 @@
   "devDependencies": {
     "@types/react": "^19.1.4",
     "@types/react-dom": "^19.1.4",
-    "@vitejs/plugin-react": "^4.5.0",
+    "@vitejs/plugin-react": "^6.0.0",
     "terser": "^5.43.1",
-    "vite": "^7.0.6"
+    "vite": "^8.0.0"
   },
   "repository": {
     "type": "git",
     "url": "https://github.com/SkipToTheEndpoint/OIBDeployer"
   },
   "engines": {
-    "node": ">=14.0.0"
+    "node": ">=20.19.0"
   }
 }

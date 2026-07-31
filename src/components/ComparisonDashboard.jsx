@@ -7,6 +7,7 @@ const ComparisonDashboard = ({
   onSelectPolicies, 
   onBack,
   onRefresh,
+  onComparisonReady,
   isLoading,
   selectedVersion 
 }) => {
@@ -191,6 +192,9 @@ const ComparisonDashboard = ({
     });
 
     setComparisonData(comparison);
+    if (onComparisonReady) {
+      onComparisonReady(comparison);
+    }
   };
 
   const getFilteredPolicies = () => {
@@ -473,62 +477,87 @@ const ComparisonDashboard = ({
               </div>
               
               <div className="os-policies">
-                {osPolicies.map((policy, index) => (
-                  <div key={`${policy.name}-${osType}-${index}`} className={`policy-comparison-item ${policy.status}`}>
-                    <div className="policy-info">
-                      <div className="policy-name">
-                        {policy.name.replace('.json', '')}
-                        {policy.skuRequirements === 'Enterprise' && (
-                          <span className="req-tag req-tag--enterprise" title="Requires Windows Enterprise SKU">Enterprise</span>
-                        )}
-                        {policy.licenseRequirements === 'MDE' && (
-                          <span className="req-tag req-tag--mde" title="Requires Microsoft Defender for Endpoint licence">MDE</span>
-                        )}
+                {(() => {
+                  // Sub-group this OS's policies by policy type (Compliance, Settings Catalog, etc.)
+                  const policiesByType = {};
+                  osPolicies.forEach(policy => {
+                    const key = policy.policyType || 'Other';
+                    if (!policiesByType[key]) policiesByType[key] = [];
+                    policiesByType[key].push(policy);
+                  });
+
+                  return Object.entries(policiesByType).map(([policyType, policies]) => (
+                    <div key={`${osType}-${policyType}`} className="policy-type-section">
+                      <div className="policy-type-header">
+                        <h4 className="policy-type-title">
+                          {policyType.replace(/([A-Z])/g, ' $1').trim()}
+                        </h4>
+                        <span className="policy-type-count">
+                          {policies.length} policies
+                        </span>
                       </div>
-                      {policy.existingPolicy && (
-                        <div className="matched-policy-name">
-                          <span className="matched-label">Matched Policy:</span>
-                          <span className="matched-name">{policy.existingPolicy.displayName || policy.existingPolicy.name}</span>
-                        </div>
-                      )}
-                      <div className="policy-status">
-                        {policy.status === 'current' && <span className="status-badge current">Up to date</span>}
-                        {policy.status === 'outdated' && (
-                          <span className="status-badge outdated">
-                            Update available: v{policy.existingVersion} → v{policy.availableVersion}
-                          </span>
-                        )}
-                        {policy.status === 'missing' && <span className="status-badge missing">New policy</span>}
-                        {policy.status === 'newer' && (
-                          <span className="status-badge newer">
-                            Newer than latest: v{policy.existingVersion} {'>'} v{policy.availableVersion}
-                          </span>
-                        )}
-                        {policy.matchMethod && (
-                          <span
-                            className={`match-badge match-badge--${policy.matchMethod}`}
-                            title={policy.matchMethod === 'oibid' ? 'Matched by unique OIBID' : 'Matched by policy name (no OIBID available)'}
-                          >
-                            {policy.matchMethod === 'oibid' ? 'OIBID' : 'Name'}
-                          </span>
-                        )}
+
+                      <div className="policy-type-policies">
+                        {policies.map((policy, index) => (
+                          <div key={`${policy.name}-${osType}-${index}`} className={`policy-comparison-item ${policy.status}`}>
+                            <div className="policy-info">
+                              <div className="policy-name">
+                                {policy.name.replace('.json', '')}
+                                {policy.skuRequirements === 'Enterprise' && (
+                                  <span className="req-tag req-tag--enterprise" title="Requires Windows Enterprise SKU">Enterprise</span>
+                                )}
+                                {policy.licenseRequirements === 'MDE' && (
+                                  <span className="req-tag req-tag--mde" title="Requires Microsoft Defender for Endpoint licence">MDE</span>
+                                )}
+                              </div>
+                              {policy.existingPolicy && (
+                                <div className="matched-policy-name">
+                                  <span className="matched-label">Matched Policy:</span>
+                                  <span className="matched-name">{policy.existingPolicy.displayName || policy.existingPolicy.name}</span>
+                                </div>
+                              )}
+                              <div className="policy-status">
+                                {policy.status === 'current' && <span className="status-badge current">Up to date</span>}
+                                {policy.status === 'outdated' && (
+                                  <span className="status-badge outdated">
+                                    Update available: v{policy.existingVersion} → v{policy.availableVersion}
+                                  </span>
+                                )}
+                                {policy.status === 'missing' && <span className="status-badge missing">New policy</span>}
+                                {policy.status === 'newer' && (
+                                  <span className="status-badge newer">
+                                    Newer than latest: v{policy.existingVersion} {'>'} v{policy.availableVersion}
+                                  </span>
+                                )}
+                                {policy.matchMethod && (
+                                  <span
+                                    className={`match-badge match-badge--${policy.matchMethod}`}
+                                    title={policy.matchMethod === 'oibid' ? 'Matched by unique OIBID' : 'Matched by policy name (no OIBID available)'}
+                                  >
+                                    {policy.matchMethod === 'oibid' ? 'OIBID' : 'Name'}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {(policy.status === 'outdated' || policy.status === 'missing') && (
+                              <div className="policy-actions">
+                                <label className="checkbox-label">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedForDeployment.some(p => p.name === policy.name)}
+                                    onChange={() => togglePolicySelection(policy)}
+                                  />
+                                  <span className="checkbox-text">Deploy</span>
+                                </label>
+                              </div>
+                            )}
+                          </div>
+                        ))}
                       </div>
                     </div>
-                    
-                    {(policy.status === 'outdated' || policy.status === 'missing') && (
-                      <div className="policy-actions">
-                        <label className="checkbox-label">
-                          <input
-                            type="checkbox"
-                            checked={selectedForDeployment.some(p => p.name === policy.name)}
-                            onChange={() => togglePolicySelection(policy)}
-                          />
-                          <span className="checkbox-text">Deploy</span>
-                        </label>
-                      </div>
-                    )}
-                  </div>
-                ))}
+                  ));
+                })()}
               </div>
             </div>
           );

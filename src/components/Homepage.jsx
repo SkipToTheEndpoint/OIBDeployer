@@ -1,5 +1,5 @@
 import React from 'react';
-import { Shield, Zap, CheckCircle, Users, Download, ArrowRight, BookOpen, ChevronDown, ExternalLink, BookOpenCheck, UserCheck, Settings } from 'lucide-react';
+import { Shield, Zap, CheckCircle, Users, Download, ArrowRight, BookOpen, ChevronDown, ExternalLink, BookOpenCheck, UserCheck, Settings, Rocket, Lock, BarChart3, Target, Smartphone, Wrench } from 'lucide-react';
 
 const Homepage = ({ onGetStarted, onViewDocumentation }) => {
   const scrollTo = (selector) => {
@@ -41,12 +41,12 @@ const Homepage = ({ onGetStarted, onViewDocumentation }) => {
   ];
 
   const benefits = [
-    "🚀 Deploy 100+ security policies across multiple platforms in minutes",
-    "🔒 Industry aligned configurations",
-    "📊 Report status against existing OIB deployments",
-    "🎯 Granular policy selection by category and platform",
-    "📱 Device compliance, endpoint security, and configuration policies",
-    "🔧 Administrative templates and Windows Update policies"
+    { icon: <Rocket className="benefit-icon" />, text: "Deploy 100+ security policies across multiple platforms in minutes" },
+    { icon: <Lock className="benefit-icon" />, text: "Industry aligned configurations" },
+    { icon: <BarChart3 className="benefit-icon" />, text: "Report status against existing OIB deployments" },
+    { icon: <Target className="benefit-icon" />, text: "Granular policy selection by category and platform" },
+    { icon: <Smartphone className="benefit-icon" />, text: "Device compliance, endpoint security, and configuration policies" },
+    { icon: <Wrench className="benefit-icon" />, text: "Administrative templates and Windows Update policies" }
   ];
 
   return (
@@ -81,22 +81,6 @@ const Homepage = ({ onGetStarted, onViewDocumentation }) => {
                 <BookOpen className="btn-icon" />
                 View Documentation
               </button>
-            </div>
-          </div>
-          
-          <div className="hero-video">
-            <div className="video-container">
-              <video 
-                className="demo-video"
-                controls
-                preload="metadata"
-              >
-                <source src="/OIBDemo.mp4" type="video/mp4" />
-                Your browser does not support the video tag.
-              </video>
-              <div className="video-caption">
-                Demo: OpenIntuneBaseline security policy deployment walkthrough
-              </div>
             </div>
           </div>
         </div>
@@ -145,7 +129,10 @@ const Homepage = ({ onGetStarted, onViewDocumentation }) => {
             </p>
             <ul className="benefits-list">
               {benefits.map((benefit, index) => (
-                <li key={index} className="benefit-item">{benefit}</li>
+                <li key={index} className="benefit-item">
+                  {benefit.icon}
+                  <span>{benefit.text}</span>
+                </li>
               ))}
             </ul>
           </div>
