@@ -6,7 +6,7 @@ This document outlines the setup requirements for running OIB Deployer either lo
 
 - Microsoft Entra ID (Azure AD) tenant with administrative access
 - Microsoft Intune license
-- Node.js 18+ and npm
+- Node.js 20.19+ (or 22.12+) and npm
 
 ## Azure App Registration Setup
 
@@ -25,9 +25,7 @@ Before running the application, you must create an Entra ID App Registration:
 6. Under **API permissions**, add:
    - **Microsoft Graph**: `DeviceManagementConfiguration.ReadWrite.All` (Delegated permission)
    - (Optional) Grant admin consent for your organization
-7. Under **Authentication** → **Implicit grant and hybrid flows**:
-   - Enable **Access tokens**
-   - Enable **ID tokens**
+7. Under **Authentication**, click **Add a platform** and select **Single-page application**, then add your redirect URI(s) there (this app uses the authorization code + PKCE flow via MSAL.js, not the legacy implicit grant — do not enable implicit grant tokens)
 
 ## Local Development Setup
 
@@ -44,10 +42,18 @@ npm install
 Create a `.env.local` file in the project root:
 
 ```env
-VITE_CLIENT_ID=your-app-registration-client-id-here
+VITE_ENTRA_CLIENT_ID=your-app-registration-client-id-here
 ```
 
 Replace `your-app-registration-client-id-here` with the Application (client) ID from your Entra ID App Registration.
+
+Optionally, also set:
+
+```env
+VITE_GITHUB_TOKEN=your-github-personal-access-token
+```
+
+`VITE_GITHUB_TOKEN` raises the GitHub API rate limit from 60 to 5000 requests/hour (create a token at [github.com/settings/tokens](https://github.com/settings/tokens) with the `public_repo` scope).
 
 ### 3. Run Development Server
 
@@ -70,8 +76,11 @@ In your forked repository:
 1. Go to **Settings** → **Secrets and variables** → **Actions**
 2. Click the **Variables** tab
 3. Add a new repository variable:
-   - **Name**: `VITE_CLIENT_ID`
+   - **Name**: `ENTRA_CLIENT_ID`
    - **Value**: Your Entra ID App Registration Application (client) ID
+4. (Optional) To avoid GitHub API rate limiting during production use, click the **Secrets** tab and add a new repository secret:
+   - **Name**: `GH_API_TOKEN`
+   - **Value**: A [GitHub personal access token](https://github.com/settings/tokens) with the `public_repo` scope
 
 ### 3. Update Entra ID App Registration Redirect URI
 
@@ -105,4 +114,5 @@ The built files will be in the `dist` directory.
 
 | Variable | Description | Required |
 |----------|-------------|----------|
-| `VITE_CLIENT_ID` | Entra ID App Registration Application (client) ID | Yes |
+| `VITE_ENTRA_CLIENT_ID` | Entra ID App Registration Application (client) ID | Yes |
+| `VITE_GITHUB_TOKEN` | GitHub personal access token (`public_repo` scope), raises the GitHub API rate limit from 60 to 5000 requests/hour | No |

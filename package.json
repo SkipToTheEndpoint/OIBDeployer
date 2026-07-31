@@ -37,6 +37,6 @@
     "url": "https://github.com/SkipToTheEndpoint/OIBDeployer"
   },
   "engines": {
-    "node": ">=14.0.0"
+    "node": ">=20.19.0"
   }
 }

@@ -1,5 +1,5 @@
 import React from 'react';
-import { CheckCircle, AlertTriangle, Info, ExternalLink, ArrowLeft } from 'lucide-react';
+import { CheckCircle, AlertTriangle, Info, ExternalLink, ArrowLeft, Rocket, HelpCircle, Wrench, Settings, BookOpen } from 'lucide-react';
 
 const Documentation = ({ onBack }) => {
   return (
@@ -15,7 +15,7 @@ const Documentation = ({ onBack }) => {
       <div className="documentation-content">
         {/* Quick Start Guide */}
         <section className="doc-section">
-          <h2>🚀 Quick Start Guide</h2>
+          <h2><Rocket size={22} className="section-icon" /> Quick Start Guide</h2>
           <div className="steps">
             <div className="step">
               <span className="step-number">1</span>
@@ -54,7 +54,7 @@ const Documentation = ({ onBack }) => {
 
         {/* FAQ Section */}
         <section className="doc-section">
-          <h2>❓ Frequently Asked Questions</h2>
+          <h2><HelpCircle size={22} className="section-icon" /> Frequently Asked Questions</h2>
           
           <div className="faq-item">
             <h3>What is OIB Deployer?</h3>
@@ -129,14 +129,14 @@ const Documentation = ({ onBack }) => {
             <h3>Can I deploy to production tenants?</h3>
             <div className="warning-box">
               <AlertTriangle size={16} />
-              <p>
-                <strong>Use with caution:</strong> 
-              <ul>
-                <li>Always test policies in a development or test tenant first.</li>
-                <li>These are baseline security policies that may impact user experience and device functionality.</li>
-                <li>The OIB was not designed to be assigned to devices previously managed in other ways (e.g. GPO, or using other baseline configurations)</li>
-              </ul>
-              </p>
+              <div>
+                <strong>Use with caution:</strong>
+                <ul>
+                  <li>Always test policies in a development or test tenant first.</li>
+                  <li>These are baseline security policies that may impact user experience and device functionality.</li>
+                  <li>The OIB was not designed to be assigned to devices previously managed in other ways (e.g. GPO, or using other baseline configurations)</li>
+                </ul>
+              </div>
             </div>
           </div>
 
@@ -170,7 +170,7 @@ const Documentation = ({ onBack }) => {
 
         {/* Troubleshooting */}
         <section className="doc-section">
-          <h2>🛠️ Troubleshooting</h2>
+          <h2><Wrench size={22} className="section-icon" /> Troubleshooting</h2>
           
           <div className="troubleshoot-item">
             <h3>Authentication Issues</h3>
@@ -205,7 +205,7 @@ const Documentation = ({ onBack }) => {
 
         {/* Technical Information */}
         <section className="doc-section">
-          <h2>🔧 Technical Information</h2>
+          <h2><Settings size={22} className="section-icon" /> Technical Information</h2>
           
           <div className="tech-info">
             <h3>Policy Sources</h3>
@@ -240,7 +240,7 @@ const Documentation = ({ onBack }) => {
 
         {/* Support & Resources */}
         <section className="doc-section">
-          <h2>📚 Resources & Support</h2>
+          <h2><BookOpen size={22} className="section-icon" /> Resources & Support</h2>
           
           <div className="resources">
             <div className="resource-item">
@@ -284,7 +284,7 @@ const Documentation = ({ onBack }) => {
 
         {/* Version Info */}
         <section className="doc-section version-info">
-          <h2>ℹ️ Version Information</h2>
+          <h2><Info size={22} className="section-icon" /> Version Information</h2>
           <div className="info-box">
             <Info size={16} />
             <div>
