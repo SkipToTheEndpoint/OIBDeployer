@@ -460,6 +460,10 @@ class GitHubAPI {
         }
 
         try {
+            const downloadUrl = new URL(policy.downloadUrl);
+            if (!['raw.githubusercontent.com', 'github.com'].includes(downloadUrl.hostname)) {
+                throw new Error(`Untrusted download URL for policy: ${policy.fileName}`);
+            }
             const response = await fetch(policy.downloadUrl);
             if (!response.ok) {
                 throw new Error(`Failed to download policy: ${response.status} ${response.statusText}`);
