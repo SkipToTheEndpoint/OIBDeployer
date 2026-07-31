@@ -3983,6 +3983,16 @@ p, h1, h2, h3, h4, h5, h6 {
 [data-theme="dark"] .info-box p {
   color: #93c5fd;
 }
+[data-theme="dark"] .deployment-warning {
+  background-color: #451a03;
+  border-color: #92400e;
+  color: #fcd34d;
+}
+[data-theme="dark"] .deployment-success {
+  background-color: #052e1a;
+  border-color: #166534;
+  color: #86efac;
+}
 
 /* Required permissions */
 [data-theme="dark"] .required-permissions {
@@ -4217,6 +4227,106 @@ p, h1, h2, h3, h4, h5, h6 {
   background-color: #4a0e2f;
   color: #f9a8d4;
   border-color: #9d174d;
+}
+
+/* Validation Dashboard \u2014 compliant/drifted/error statuses were missing dark
+   backgrounds, leaving light-mode text colours unreadable against them. */
+[data-theme="dark"] .policy-comparison-item.compliant {
+  background-color: #0a2e1a;
+}
+[data-theme="dark"] .policy-comparison-item.drifted {
+  background-color: #2d1700;
+}
+[data-theme="dark"] .policy-comparison-item.error {
+  background-color: #2d0a0a;
+}
+[data-theme="dark"] .policy-comparison-list {
+  background-color: var(--bg-surface);
+  border-color: var(--border-color);
+}
+[data-theme="dark"] .validation-score {
+  color: var(--text-muted);
+}
+[data-theme="dark"] .validation-details {
+  border-top-color: var(--border-color);
+}
+[data-theme="dark"] .validation-section-toggle {
+  color: var(--text-secondary);
+}
+[data-theme="dark"] .validation-table {
+  background-color: var(--bg-elevated);
+  border-color: var(--border-color);
+}
+[data-theme="dark"] .validation-table th {
+  background-color: var(--bg-sunken);
+  color: var(--text-muted);
+  border-bottom-color: var(--border-color);
+}
+[data-theme="dark"] .validation-table td {
+  border-bottom-color: var(--border-color);
+}
+[data-theme="dark"] .validation-setting-id {
+  color: var(--text-primary);
+}
+[data-theme="dark"] .validation-value.oib-value {
+  color: #93c5fd;
+}
+[data-theme="dark"] .validation-value.tenant-value {
+  color: #fbbf24;
+}
+[data-theme="dark"] .validation-scope-note {
+  background-color: #3d2e0a;
+  border-color: #78350f;
+  color: #fcd34d;
+}
+[data-theme="dark"] .validation-compliant-msg {
+  background-color: #052e1a;
+  border-color: #166534;
+  color: #86efac;
+}
+[data-theme="dark"] .validation-error-msg {
+  background-color: #2d0a0a;
+  border-color: #7f1d1d;
+  color: #fca5a5;
+}
+[data-theme="dark"] .btn-ghost:hover:not(:disabled) {
+  background-color: var(--bg-elevated);
+}
+
+/* Comparison Dashboard \u2014 stat cards, status/match badges, filter tabs */
+[data-theme="dark"] .stat-card {
+  background-color: var(--bg-surface);
+  border-color: var(--border-color);
+}
+[data-theme="dark"] .filter-tab {
+  background-color: var(--bg-elevated);
+  border-color: var(--border-color);
+  color: var(--text-primary);
+}
+[data-theme="dark"] .status-badge.current {
+  background-color: #064e3b;
+  color: #6ee7b7;
+}
+[data-theme="dark"] .status-badge.outdated {
+  background-color: #7c2d12;
+  color: #fdba74;
+}
+[data-theme="dark"] .status-badge.missing {
+  background-color: #1e3a5f;
+  color: #93c5fd;
+}
+[data-theme="dark"] .status-badge.newer,
+[data-theme="dark"] .status-badge.error {
+  background-color: #7f1d1d;
+  color: #fca5a5;
+}
+[data-theme="dark"] .match-badge--oibid {
+  background-color: #3b2a5c;
+  color: #c4b5fd;
+}
+[data-theme="dark"] .match-badge--name {
+  background-color: var(--bg-elevated);
+  color: var(--text-muted);
 }
 
 /* ===== HOMEPAGE DARK MODE ===== */
