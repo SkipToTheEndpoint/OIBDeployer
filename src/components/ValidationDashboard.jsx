@@ -12,6 +12,9 @@ import {
  * Props:
  *  - matchedPolicies   : array of policy entries from ComparisonDashboard
  *                        (status === 'current' | 'outdated' | 'newer')
+ *  - duplicatePolicies : array of OIB policies with more than one ambiguous
+ *                        tenant match (status === 'duplicate') — shown as a
+ *                        warning, never auto-matched or validated
  *  - validationResults : Map<policyName, result> managed by App.jsx
  *  - onValidatePolicy  : (policy) => void
  *  - onValidateAll     : (policies) => void
@@ -21,6 +24,7 @@ import {
  */
 const ValidationDashboard = ({
   matchedPolicies = [],
+  duplicatePolicies = [],
   validationResults,
   onValidatePolicy,
   onValidateAll,
@@ -92,7 +96,7 @@ const ValidationDashboard = ({
         {items.map((item, i) => (
           <tr key={i}>
             <td className="validation-setting-id" title={item.settingDefinitionId ?? item.path}>
-              {item.label ?? item.path ?? item.settingDefinitionId}
+              {item.path ?? item.label ?? item.settingDefinitionId}
             </td>
             <td className="validation-value oib-value">
               {String(item.oibValue ?? item.label ?? '—')}
@@ -250,6 +254,26 @@ const ValidationDashboard = ({
               <AlertTriangle size={14} />
               {` ${unsupported.length} matched ${unsupported.length === 1 ? 'policy is' : 'policies are'} not Settings Catalog, Endpoint Security or Compliance type and are excluded from validation.`}
             </p>
+          )}
+          {duplicatePolicies.length > 0 && (
+            <div className="duplicate-matches">
+              <span className="matched-label">
+                <AlertTriangle size={14} className="icon-drift" />
+                {` ${duplicatePolicies.length} ${duplicatePolicies.length === 1 ? 'policy has' : 'policies have'} multiple ambiguous tenant matches and ${duplicatePolicies.length === 1 ? 'was' : 'were'} skipped — resolve the duplicates in Intune before validating:`}
+              </span>
+              <ul className="duplicate-matches-list">
+                {duplicatePolicies.map(policy => (
+                  <li key={policy.name}>
+                    <span className="matched-name">{policy.name.replace('.json', '')}:</span>
+                    {policy.matchedPolicies.map(match => (
+                      <span key={match.id} className="duplicate-match-id">
+                        {match.displayName || match.name} (Graph Policy ID: {match.id})
+                      </span>
+                    ))}
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
         </div>
 
