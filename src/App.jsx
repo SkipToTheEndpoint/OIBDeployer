@@ -810,6 +810,14 @@ function App() {
               });
               return all;
             })()}
+            duplicatePolicies={(() => {
+              if (!comparisonData?.byOS) return [];
+              const all = [];
+              Object.values(comparisonData.byOS).forEach(osData => {
+                all.push(...(osData.duplicates || []));
+              });
+              return all;
+            })()}
             validationResults={validationResults}
             onValidatePolicy={handleValidatePolicy}
             onValidateAll={handleValidateAll}

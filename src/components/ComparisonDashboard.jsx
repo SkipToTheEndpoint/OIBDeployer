@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BarChart3, TrendingUp, AlertTriangle, CheckCircle, Plus, ArrowLeft, RefreshCw } from 'lucide-react';
+import { BarChart3, TrendingUp, AlertTriangle, CheckCircle, Plus, ArrowLeft, RefreshCw, Copy } from 'lucide-react';
 
 const ComparisonDashboard = ({ 
   existingPolicies, 
@@ -31,6 +31,7 @@ const ComparisonDashboard = ({
         outdated: 0,
         newer: 0,
         missing: 0,
+        duplicates: 0,
         total: 0
       }
     };
@@ -64,11 +65,13 @@ const ComparisonDashboard = ({
         outdated: [],
         newer: [],
         missing: [],
+        duplicates: [],
         totals: {
           current: 0,
           outdated: 0,
           newer: 0,
           missing: 0,
+          duplicates: 0,
           total: 0
         }
       };
@@ -87,11 +90,33 @@ const ComparisonDashboard = ({
         // --- Pass 1: OIBID matching (v3.8+ branches with PolicyManifest) ---
         if (availableOibId) {
           // Current version already deployed?
-          const matchedByCurrent = existingPolicies.find(p => p.oibId === availableOibId);
+          const currentMatches = existingPolicies.filter(p => p.oibId === availableOibId);
+          if (currentMatches.length > 1) {
+            comparison.byOS[osType].duplicates.push({
+              ...availablePolicy,
+              matchedPolicies: currentMatches,
+              status: 'duplicate',
+              matchMethod: 'oibid'
+            });
+            return;
+          }
+          const matchedByCurrent = currentMatches[0] || null;
+
           // Or a previous version deployed (tenant is out of date)?
-          const matchedByPrevious = !matchedByCurrent
-            ? existingPolicies.find(p => p.oibId && previousVersionIds.includes(p.oibId))
-            : null;
+          let matchedByPrevious = null;
+          if (!matchedByCurrent) {
+            const previousMatches = existingPolicies.filter(p => p.oibId && previousVersionIds.includes(p.oibId));
+            if (previousMatches.length > 1) {
+              comparison.byOS[osType].duplicates.push({
+                ...availablePolicy,
+                matchedPolicies: previousMatches,
+                status: 'duplicate',
+                matchMethod: 'oibid'
+              });
+              return;
+            }
+            matchedByPrevious = previousMatches[0] || null;
+          }
 
           if (matchedByCurrent) {
             comparison.byOS[osType].current.push({
@@ -120,10 +145,22 @@ const ComparisonDashboard = ({
         const availableVersion = extractVersion(policyName);
         const availableBaseName = extractBaseName(policyName);
 
-        const existingPolicy = existingPolicies.find(existing => {
+        const nameMatches = existingPolicies.filter(existing => {
           const existingBaseName = extractBaseName(existing.displayName || existing.name || '');
           return existingBaseName.toLowerCase() === availableBaseName.toLowerCase();
         });
+
+        if (nameMatches.length > 1) {
+          comparison.byOS[osType].duplicates.push({
+            ...availablePolicy,
+            matchedPolicies: nameMatches,
+            status: 'duplicate',
+            matchMethod: 'name'
+          });
+          return;
+        }
+
+        const existingPolicy = nameMatches[0] || null;
 
         if (existingPolicy) {
           const existingVersion = extractVersion(existingPolicy.displayName || existingPolicy.name || '');
@@ -180,6 +217,7 @@ const ComparisonDashboard = ({
         outdated: comparison.byOS[osType].outdated.length,
         newer: comparison.byOS[osType].newer.length,
         missing: comparison.byOS[osType].missing.length,
+        duplicates: comparison.byOS[osType].duplicates.length,
         total: osPolicies.length
       };
 
@@ -188,6 +226,7 @@ const ComparisonDashboard = ({
       comparison.totals.outdated += comparison.byOS[osType].totals.outdated;
       comparison.totals.newer += comparison.byOS[osType].totals.newer;
       comparison.totals.missing += comparison.byOS[osType].totals.missing;
+      comparison.totals.duplicates += comparison.byOS[osType].totals.duplicates;
       comparison.totals.total += comparison.byOS[osType].totals.total;
     });
 
@@ -266,6 +305,8 @@ const ComparisonDashboard = ({
             return osData.newer || [];
           case 'current':
             return osData.current || [];
+          case 'duplicate':
+            return [];
           default:
             return [...(osData.missing || []), ...(osData.outdated || []), ...(osData.newer || [])];
         }
@@ -359,6 +400,16 @@ const ComparisonDashboard = ({
             <div className="stat-label">Newer Than Latest</div>
           </div>
         </div>
+
+        <div className="stat-card duplicate">
+          <div className="stat-icon">
+            <Copy size={24} />
+          </div>
+          <div className="stat-content">
+            <div className="stat-number">{comparisonData.totals.duplicates}</div>
+            <div className="stat-label">Duplicate Matches</div>
+          </div>
+        </div>
       </div>
 
       {/* Filter Tabs */}
@@ -387,6 +438,14 @@ const ComparisonDashboard = ({
         >
           Newer Than Latest ({comparisonData.totals.newer})
         </button>
+        {comparisonData.totals.duplicates > 0 && (
+          <button
+            className={`filter-tab ${viewFilter === 'duplicate' ? 'active' : ''}`}
+            onClick={() => setViewFilter('duplicate')}
+          >
+            Duplicate Matches ({comparisonData.totals.duplicates})
+          </button>
+        )}
       </div>
 
       {/* Global Selection Controls */}
@@ -409,6 +468,8 @@ const ComparisonDashboard = ({
                     return osData.newer || [];
                   case 'current':
                     return osData.current || [];
+                  case 'duplicate':
+                    return [];
                   default:
                     return [...(osData.missing || []), ...(osData.outdated || []), ...(osData.newer || [])];
                 }
@@ -441,12 +502,15 @@ const ComparisonDashboard = ({
                 return osData.newer || [];
               case 'current':
                 return osData.current || [];
+              case 'duplicate':
+                return osData.duplicates || [];
               default:
                 return [
                   ...(osData.missing || []),
                   ...(osData.outdated || []),
                   ...(osData.newer || []),
-                  ...(osData.current || [])
+                  ...(osData.current || []),
+                  ...(osData.duplicates || [])
                 ];
             }
           };
@@ -471,6 +535,7 @@ const ComparisonDashboard = ({
                       {viewFilter === 'outdated' && <span className="os-stat-summary">{osData.totals.outdated} policies</span>}
                       {viewFilter === 'newer' && <span className="os-stat-summary">{osData.totals.newer} policies</span>}
                       {viewFilter === 'current' && <span className="os-stat-summary">{osData.totals.current} policies</span>}
+                      {viewFilter === 'duplicate' && <span className="os-stat-summary">{osData.totals.duplicates} policies</span>}
                     </>
                   )}
                 </div>
@@ -516,6 +581,19 @@ const ComparisonDashboard = ({
                                   <span className="matched-name">{policy.existingPolicy.displayName || policy.existingPolicy.name}</span>
                                 </div>
                               )}
+                              {policy.status === 'duplicate' && (
+                                <div className="duplicate-matches">
+                                  <span className="matched-label">Ambiguous - {policy.matchedPolicies.length} matching tenant policies:</span>
+                                  <ul className="duplicate-matches-list">
+                                    {policy.matchedPolicies.map(match => (
+                                      <li key={match.id}>
+                                        <span className="matched-name">{match.displayName || match.name}</span>
+                                        <span className="duplicate-match-id">Graph Policy ID: {match.id}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
                               <div className="policy-status">
                                 {policy.status === 'current' && <span className="status-badge current">Up to date</span>}
                                 {policy.status === 'outdated' && (
@@ -528,6 +606,9 @@ const ComparisonDashboard = ({
                                   <span className="status-badge newer">
                                     Newer than latest: v{policy.existingVersion} {'>'} v{policy.availableVersion}
                                   </span>
+                                )}
+                                {policy.status === 'duplicate' && (
+                                  <span className="status-badge duplicate">Skipped - not validated or matched automatically</span>
                                 )}
                                 {policy.matchMethod && (
                                   <span

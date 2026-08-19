@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   ArrowLeft, ShieldCheck, ShieldAlert, AlertTriangle,
-  ChevronDown, ChevronRight, Loader, RefreshCw, CheckCircle
+  ChevronDown, ChevronRight, Loader, RefreshCw, CheckCircle, Download
 } from 'lucide-react';
 
 /**
@@ -12,6 +12,9 @@ import {
  * Props:
  *  - matchedPolicies   : array of policy entries from ComparisonDashboard
  *                        (status === 'current' | 'outdated' | 'newer')
+ *  - duplicatePolicies : array of OIB policies with more than one ambiguous
+ *                        tenant match (status === 'duplicate') — shown as a
+ *                        warning, never auto-matched or validated
  *  - validationResults : Map<policyName, result> managed by App.jsx
  *  - onValidatePolicy  : (policy) => void
  *  - onValidateAll     : (policies) => void
@@ -21,6 +24,7 @@ import {
  */
 const ValidationDashboard = ({
   matchedPolicies = [],
+  duplicatePolicies = [],
   validationResults,
   onValidatePolicy,
   onValidateAll,
@@ -48,6 +52,85 @@ const ValidationDashboard = ({
   const compliantCount   = supported.filter(p => validationResults.get(p.name)?.status === 'compliant').length;
   const driftedCount     = supported.filter(p => validationResults.get(p.name)?.status === 'drifted').length;
   const errorCount       = supported.filter(p => validationResults.get(p.name)?.status === 'error').length;
+
+  // Flatten every deviation (mismatch, missing, extra, or error) across all
+  // validated policies into CSV-ready rows — compliant policies contribute nothing.
+  const buildExportRows = () => {
+    const rows = [];
+    supported.forEach(policy => {
+      const result = validationResults.get(policy.name);
+      if (!result) return;
+
+      const base = {
+        policyName: policy.name.replace('.json', ''),
+        osType: policy.osType || '',
+        policyType: policy.policyType || policy.type || '',
+        matchedPolicy: policy.existingPolicy?.displayName || policy.existingPolicy?.name || '',
+      };
+
+      if (result.status === 'error') {
+        rows.push({ ...base, deviationType: 'Error', setting: '', oibValue: '', tenantValue: result.error || '' });
+        return;
+      }
+      if (result.status !== 'drifted') return;
+
+      (result.mismatches || []).forEach(m => {
+        rows.push({
+          ...base,
+          deviationType: 'Value mismatch',
+          setting: m.path ?? m.label ?? m.settingDefinitionId ?? '',
+          oibValue: m.oibValue,
+          tenantValue: m.tenantValue,
+        });
+      });
+      (result.oibOnly || []).forEach(item => {
+        rows.push({
+          ...base,
+          deviationType: 'Missing in tenant',
+          setting: item.label ?? item.settingDefinitionId ?? '',
+          oibValue: '(configured)',
+          tenantValue: '(absent)',
+        });
+      });
+      (result.tenantOnly || []).forEach(item => {
+        rows.push({
+          ...base,
+          deviationType: 'Extra in tenant',
+          setting: item.label ?? item.settingDefinitionId ?? '',
+          oibValue: '(absent)',
+          tenantValue: '(configured)',
+        });
+      });
+    });
+    return rows;
+  };
+
+  const exportRows = buildExportRows();
+
+  const csvEscape = (value) => {
+    const str = String(value ?? '');
+    return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+  };
+
+  const handleExportCsv = () => {
+    const headers = ['Policy Name', 'OS', 'Policy Type', 'Matched Tenant Policy', 'Deviation Type', 'Setting', 'OIB Value', 'Tenant Value'];
+    const csvContent = [
+      headers.join(','),
+      ...exportRows.map(r => [
+        r.policyName, r.osType, r.policyType, r.matchedPolicy, r.deviationType, r.setting, r.oibValue, r.tenantValue
+      ].map(csvEscape).join(','))
+    ].join('\r\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `oib-validation-deviations-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   const toggleExpand = (name) => {
     setExpanded(prev => {
@@ -92,7 +175,7 @@ const ValidationDashboard = ({
         {items.map((item, i) => (
           <tr key={i}>
             <td className="validation-setting-id" title={item.settingDefinitionId ?? item.path}>
-              {item.label ?? item.path ?? item.settingDefinitionId}
+              {item.path ?? item.label ?? item.settingDefinitionId}
             </td>
             <td className="validation-value oib-value">
               {String(item.oibValue ?? item.label ?? '—')}
@@ -251,6 +334,26 @@ const ValidationDashboard = ({
               {` ${unsupported.length} matched ${unsupported.length === 1 ? 'policy is' : 'policies are'} not Settings Catalog, Endpoint Security or Compliance type and are excluded from validation.`}
             </p>
           )}
+          {duplicatePolicies.length > 0 && (
+            <div className="duplicate-matches">
+              <span className="matched-label">
+                <AlertTriangle size={14} className="icon-drift" />
+                {` ${duplicatePolicies.length} ${duplicatePolicies.length === 1 ? 'policy has' : 'policies have'} multiple ambiguous tenant matches and ${duplicatePolicies.length === 1 ? 'was' : 'were'} skipped - resolve the duplicates in Intune before validating:`}
+              </span>
+              <ul className="duplicate-matches-list">
+                {duplicatePolicies.map(policy => (
+                  <li key={policy.name}>
+                    <span className="matched-name">{policy.name.replace('.json', '')}:</span>
+                    {policy.matchedPolicies.map(match => (
+                      <span key={match.id} className="duplicate-match-id">
+                        {match.displayName || match.name} (Graph Policy ID: {match.id})
+                      </span>
+                    ))}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
 
         {/* Summary Stats */}
@@ -368,6 +471,13 @@ const ValidationDashboard = ({
                 ? <><Loader size={14} className="spinning" /> Validating…</>
                 : `Validate All (${supported.length})`
               }
+            </button>
+          )}
+
+          {exportRows.length > 0 && (
+            <button className="btn-secondary" onClick={handleExportCsv}>
+              <Download size={16} />
+              {`Export CSV (${exportRows.length})`}
             </button>
           )}
         </div>

@@ -210,17 +210,16 @@ const Documentation = ({ onBack }) => {
           <div className="tech-info">
             <h3>Policy Sources</h3>
             <p>
-              All policies are loaded automatically from the  
+              All policies are loaded automatically from the&nbsp;
               <a href="https://github.com/SkipToTheEndpoint/OpenIntuneBaseline" target="_blank" rel="noopener noreferrer">
-                OpenIntuneBaseline GitHub Repo<ExternalLink size={14} /> via the GitHub API.
-              </a>.
+                OpenIntuneBaseline GitHub Repo<ExternalLink size={14} /></a> via the GitHub API.
             </p>
           </div>
 
           <div className="tech-info">
             <h3>Compatibility</h3>
             <p>
-              The import functionality is designed to match the behavior of the 
+              The import functionality is designed to match the behavior of the&nbsp;
               <a href="https://github.com/Micke-K/IntuneManagement" target="_blank" rel="noopener noreferrer">
                 IntuneManagement PowerShell module <ExternalLink size={14} />
               </a>, 
@@ -288,8 +287,8 @@ const Documentation = ({ onBack }) => {
           <div className="info-box">
             <Info size={16} />
             <div>
-              <p><strong>OIB Deployer Version:</strong> 1.2.0</p>
-              <p><strong>Last Updated:</strong> July 2026</p>
+              <p><strong>OIB Deployer Version:</strong> 1.2.1</p>
+              <p><strong>Last Updated:</strong> August 2026</p>
               <p><strong>Compatible with:</strong> OpenIntuneBaseline v3.0+ (OIBID matching and licensing-based filtering require v3.8+)</p>
             </div>
           </div>
