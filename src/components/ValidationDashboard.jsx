@@ -338,7 +338,7 @@ const ValidationDashboard = ({
             <div className="duplicate-matches">
               <span className="matched-label">
                 <AlertTriangle size={14} className="icon-drift" />
-                {` ${duplicatePolicies.length} ${duplicatePolicies.length === 1 ? 'policy has' : 'policies have'} multiple ambiguous tenant matches and ${duplicatePolicies.length === 1 ? 'was' : 'were'} skipped — resolve the duplicates in Intune before validating:`}
+                {` ${duplicatePolicies.length} ${duplicatePolicies.length === 1 ? 'policy has' : 'policies have'} multiple ambiguous tenant matches and ${duplicatePolicies.length === 1 ? 'was' : 'were'} skipped - resolve the duplicates in Intune before validating:`}
               </span>
               <ul className="duplicate-matches-list">
                 {duplicatePolicies.map(policy => (

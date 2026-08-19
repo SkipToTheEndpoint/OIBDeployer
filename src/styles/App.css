@@ -2560,15 +2560,17 @@ p, h1, h2, h3, h4, h5, h6 {
 
 .duplicate-matches-list li {
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  gap: 0.25rem;
 }
 
 .duplicate-match-id {
   font-family: 'Consolas', 'Monaco', monospace;
   font-size: 0.75rem;
   color: #6b7280;
+  padding-left: 1rem;
 }
 
 .status-badge {
