@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   ArrowLeft, ShieldCheck, ShieldAlert, AlertTriangle,
-  ChevronDown, ChevronRight, Loader, RefreshCw, CheckCircle
+  ChevronDown, ChevronRight, Loader, RefreshCw, CheckCircle, Download
 } from 'lucide-react';
 
 /**
@@ -52,6 +52,85 @@ const ValidationDashboard = ({
   const compliantCount   = supported.filter(p => validationResults.get(p.name)?.status === 'compliant').length;
   const driftedCount     = supported.filter(p => validationResults.get(p.name)?.status === 'drifted').length;
   const errorCount       = supported.filter(p => validationResults.get(p.name)?.status === 'error').length;
+
+  // Flatten every deviation (mismatch, missing, extra, or error) across all
+  // validated policies into CSV-ready rows — compliant policies contribute nothing.
+  const buildExportRows = () => {
+    const rows = [];
+    supported.forEach(policy => {
+      const result = validationResults.get(policy.name);
+      if (!result) return;
+
+      const base = {
+        policyName: policy.name.replace('.json', ''),
+        osType: policy.osType || '',
+        policyType: policy.policyType || policy.type || '',
+        matchedPolicy: policy.existingPolicy?.displayName || policy.existingPolicy?.name || '',
+      };
+
+      if (result.status === 'error') {
+        rows.push({ ...base, deviationType: 'Error', setting: '', oibValue: '', tenantValue: result.error || '' });
+        return;
+      }
+      if (result.status !== 'drifted') return;
+
+      (result.mismatches || []).forEach(m => {
+        rows.push({
+          ...base,
+          deviationType: 'Value mismatch',
+          setting: m.path ?? m.label ?? m.settingDefinitionId ?? '',
+          oibValue: m.oibValue,
+          tenantValue: m.tenantValue,
+        });
+      });
+      (result.oibOnly || []).forEach(item => {
+        rows.push({
+          ...base,
+          deviationType: 'Missing in tenant',
+          setting: item.label ?? item.settingDefinitionId ?? '',
+          oibValue: '(configured)',
+          tenantValue: '(absent)',
+        });
+      });
+      (result.tenantOnly || []).forEach(item => {
+        rows.push({
+          ...base,
+          deviationType: 'Extra in tenant',
+          setting: item.label ?? item.settingDefinitionId ?? '',
+          oibValue: '(absent)',
+          tenantValue: '(configured)',
+        });
+      });
+    });
+    return rows;
+  };
+
+  const exportRows = buildExportRows();
+
+  const csvEscape = (value) => {
+    const str = String(value ?? '');
+    return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+  };
+
+  const handleExportCsv = () => {
+    const headers = ['Policy Name', 'OS', 'Policy Type', 'Matched Tenant Policy', 'Deviation Type', 'Setting', 'OIB Value', 'Tenant Value'];
+    const csvContent = [
+      headers.join(','),
+      ...exportRows.map(r => [
+        r.policyName, r.osType, r.policyType, r.matchedPolicy, r.deviationType, r.setting, r.oibValue, r.tenantValue
+      ].map(csvEscape).join(','))
+    ].join('\r\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `oib-validation-deviations-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   const toggleExpand = (name) => {
     setExpanded(prev => {
@@ -392,6 +471,13 @@ const ValidationDashboard = ({
                 ? <><Loader size={14} className="spinning" /> Validating…</>
                 : `Validate All (${supported.length})`
               }
+            </button>
+          )}
+
+          {exportRows.length > 0 && (
+            <button className="btn-secondary" onClick={handleExportCsv}>
+              <Download size={16} />
+              {`Export CSV (${exportRows.length})`}
             </button>
           )}
         </div>
