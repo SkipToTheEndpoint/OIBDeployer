@@ -337,11 +337,25 @@ class GitHubAPI {
                         const entry = manifestData.byName.get(policy.name);
                         if (entry) {
                             policy.oibId = entry.oibId.toUpperCase();
-                            policy.previousVersions = (entry.previousVersions || []).map(id => id.toUpperCase());
+                            policy.previousVersions = (entry.previousVersions || [])
+                                .map(previousVersion => typeof previousVersion === 'string'
+                                    ? previousVersion
+                                    : previousVersion?.oibId)
+                                .filter(id => typeof id === 'string')
+                                .map(id => id.toUpperCase());
                             policy.scope = entry.scope || null;
                             policy.addedIn = entry.addedIn || null;
                             policy.skuRequirements = entry.skuRequirements || null;
                             policy.licenseRequirements = entry.licenseRequirements || null;
+                            policy.lifecycleStatus = entry.status || 'active';
+                            policy.replacements = (entry.supersededBy || [])
+                                .map(id => typeof id === 'string' ? id : id?.oibId)
+                                .filter(id => typeof id === 'string')
+                                .map(id => {
+                                    const replacement = manifestData.byOibId.get(id.toUpperCase());
+                                    return replacement && { oibId: id.toUpperCase(), name: replacement.name };
+                                })
+                                .filter(Boolean);
 
                             // Override policyType when the manifest disagrees with the path heuristic
                             if (entry.policyType && entry.policyType !== currentType) {
@@ -366,6 +380,25 @@ class GitHubAPI {
                 Object.keys(policiesByType).forEach(k => {
                     if (policiesByType[k].length === 0) delete policiesByType[k];
                 });
+
+                // Retired policies may no longer have a JSON file in the branch,
+                // but their manifest entries are still needed to identify tenant
+                // policies that should be reviewed for cleanup.
+                policiesByType._deprecatedPolicies = (manifestData.manifest.policies || [])
+                    .filter(entry => entry.status === 'deprecated')
+                    .map(entry => ({
+                        oibId: entry.oibId?.toUpperCase(),
+                        name: entry.name,
+                        replacements: (entry.supersededBy || [])
+                            .map(id => typeof id === 'string' ? id : id?.oibId)
+                            .filter(id => typeof id === 'string')
+                            .map(id => {
+                                const replacement = manifestData.byOibId.get(id.toUpperCase());
+                                return replacement && { oibId: id.toUpperCase(), name: replacement.name };
+                            })
+                            .filter(Boolean)
+                    }))
+                    .filter(policy => policy.oibId);
             }
 
             // Log the results for debugging

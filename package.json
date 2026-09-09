@@ -1,6 +1,6 @@
 {
   "name": "oib-deployer",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "Deploy OpenIntuneBaseline policies to Microsoft Intune tenants",
   "main": "index.html",
   "type": "module",
