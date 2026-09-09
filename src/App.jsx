@@ -180,7 +180,7 @@ function App() {
     const versionLabel = branchOverride
       ? `Branch override: ${branchOverride}`
       : 'Latest (main branch)';
-    const sessionKey = `oib-latest-data-${latest}`;
+    const sessionKey = `oib-latest-data-v2-${latest}`;
 
     try {
       setIsLoading(true);
@@ -815,6 +815,14 @@ function App() {
               const all = [];
               Object.values(comparisonData.byOS).forEach(osData => {
                 all.push(...(osData.duplicates || []));
+              });
+              return all;
+            })()}
+            deprecatedPolicies={(() => {
+              if (!comparisonData?.byOS) return [];
+              const all = [];
+              Object.values(comparisonData.byOS).forEach(osData => {
+                all.push(...(osData.deprecatedPolicies || []));
               });
               return all;
             })()}

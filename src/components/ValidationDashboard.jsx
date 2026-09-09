@@ -12,6 +12,7 @@ import {
  * Props:
  *  - matchedPolicies   : array of policy entries from ComparisonDashboard
  *                        (status === 'current' | 'outdated' | 'newer')
+ *  - deprecatedPolicies: deployed tenant policies that a manifest marks deprecated
  *  - duplicatePolicies : array of OIB policies with more than one ambiguous
  *                        tenant match (status === 'duplicate') — shown as a
  *                        warning, never auto-matched or validated
@@ -24,6 +25,7 @@ import {
  */
 const ValidationDashboard = ({
   matchedPolicies = [],
+  deprecatedPolicies = [],
   duplicatePolicies = [],
   validationResults,
   onValidatePolicy,
@@ -162,6 +164,24 @@ const ValidationDashboard = ({
     return null;
   };
 
+  const renderVersionBadge = (policy) => {
+    if (policy.status === 'outdated') {
+      return (
+        <span className="status-badge outdated">
+          Update available: tenant v{policy.existingVersion || 'previous'} → OIB v{policy.availableVersion || 'latest'}
+        </span>
+      );
+    }
+    if (policy.status === 'newer') {
+      return (
+        <span className="status-badge newer">
+          Newer than OIB: tenant v{policy.existingVersion} → OIB v{policy.availableVersion}
+        </span>
+      );
+    }
+    return null;
+  };
+
   const renderMismatchTable = (items, colA, colB) => (
     <table className="validation-table">
       <thead>
@@ -215,7 +235,7 @@ const ValidationDashboard = ({
     const tenKey = `${policy.name}-tenonly`;
 
     return (
-      <div key={policy.name} className={`policy-comparison-item ${result ? result.status : ''}`}>
+      <div key={policy.name} className={`policy-comparison-item ${policy.status === 'outdated' || policy.status === 'newer' ? policy.status : ''} ${result ? result.status : ''}`}>
         <div className="policy-info">
           <div className="policy-name">{policy.name.replace('.json', '')}</div>
           {policy.existingPolicy && (
@@ -224,11 +244,38 @@ const ValidationDashboard = ({
               <span className="matched-name">{policy.existingPolicy.displayName ?? policy.existingPolicy.name}</span>
             </div>
           )}
+          {policy.lifecycleStatus === 'deprecated' && (
+            <div className="deprecation-notice">
+              <AlertTriangle size={14} />
+              <span>
+                Deprecated - {policy.replacements?.some(replacement => replacement.tenantPolicy)
+                  ? 'replacement is deployed; this policy can be reviewed for removal.'
+                  : 'replacement available in OIB; deploy it before removing this policy.'}
+              </span>
+              {policy.replacements?.map(replacement => (
+                <span key={replacement.oibId} className="deprecation-replacement">
+                  {replacement.tenantPolicy ? 'Deployed: ' : 'Replacement: '}{replacement.name}
+                </span>
+              ))}
+            </div>
+          )}
+          {policy.legacyTenantPolicies?.length > 0 && (
+            <div className="deprecation-notice">
+              <AlertTriangle size={14} />
+              <span>Legacy OIB version also deployed - review it for removal:</span>
+              {policy.legacyTenantPolicies.map(legacyPolicy => (
+                <span key={legacyPolicy.id} className="deprecation-replacement">
+                  {legacyPolicy.displayName || legacyPolicy.name}
+                </span>
+              ))}
+            </div>
+          )}
           <div className="policy-status">
             {isCurrentlyValidating
               ? <span className="status-badge"><Loader size={12} className="spinning" /> Validating…</span>
               : renderStatusBadge(result)
             }
+            {renderVersionBadge(policy)}
             {result?.status === 'drifted' && (
               <span className="validation-score">
                 {result.matched}/{result.totalOib} OIB settings matched
@@ -354,6 +401,20 @@ const ValidationDashboard = ({
               </ul>
             </div>
           )}
+          {deprecatedPolicies.length > 0 && (
+            <div className="deprecation-notice">
+              <AlertTriangle size={14} />
+              <span>Deprecated OIB policies deployed in this tenant - review for removal:</span>
+              {deprecatedPolicies.map(policy => (
+                <span key={policy.tenantPolicy.id} className="deprecation-replacement">
+                  {policy.tenantPolicy.displayName || policy.tenantPolicy.name}
+                  {policy.replacements.some(replacement => replacement.tenantPolicy)
+                    ? ' - replacement deployed'
+                    : ' - replacement available in OIB'}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Summary Stats */}
@@ -413,6 +474,12 @@ const ValidationDashboard = ({
                   const key = policy.policyType || 'Other';
                   if (!policiesByType[key]) policiesByType[key] = [];
                   policiesByType[key].push(policy);
+                });
+
+                Object.values(policiesByType).forEach(policies => {
+                  policies.sort((firstPolicy, secondPolicy) =>
+                    firstPolicy.name.localeCompare(secondPolicy.name)
+                  );
                 });
 
                 return (

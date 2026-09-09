@@ -78,14 +78,30 @@ const ComparisonDashboard = ({
 
       // Flatten policies for this OS
       const osPolicies = [];
-      Object.values(osData).forEach(policies => {
+      Object.entries(osData).forEach(([policyType, policies]) => {
+        if (policyType === '_deprecatedPolicies') return;
         osPolicies.push(...policies.map(p => ({ ...p, osType })));
       });
+
+      comparison.byOS[osType].deprecatedPolicies = (osData._deprecatedPolicies || [])
+        .map(deprecatedPolicy => ({
+          ...deprecatedPolicy,
+          tenantPolicy: existingPolicies.find(policy => policy.oibId === deprecatedPolicy.oibId) || null,
+          replacements: deprecatedPolicy.replacements.map(replacement => ({
+            ...replacement,
+            tenantPolicy: existingPolicies.find(policy => policy.oibId === replacement.oibId) || null
+          }))
+        }))
+        .filter(deprecatedPolicy => deprecatedPolicy.tenantPolicy);
 
       osPolicies.forEach(availablePolicy => {
         const policyName = availablePolicy.name.replace('.json', '');
         const availableOibId = availablePolicy.oibId?.toUpperCase();
         const previousVersionIds = (availablePolicy.previousVersions || []).map(id => id.toUpperCase());
+        availablePolicy.replacements = (availablePolicy.replacements || []).map(replacement => ({
+          ...replacement,
+          tenantPolicy: existingPolicies.find(policy => policy.oibId === replacement.oibId) || null
+        }));
 
         // --- Pass 1: OIBID matching (v3.8+ branches with PolicyManifest) ---
         if (availableOibId) {
@@ -102,10 +118,11 @@ const ComparisonDashboard = ({
           }
           const matchedByCurrent = currentMatches[0] || null;
 
-          // Or a previous version deployed (tenant is out of date)?
+          // A previous version can coexist with the current policy and should be
+          // retained as a cleanup candidate rather than silently ignored.
+          const previousMatches = existingPolicies.filter(p => p.oibId && previousVersionIds.includes(p.oibId));
           let matchedByPrevious = null;
           if (!matchedByCurrent) {
-            const previousMatches = existingPolicies.filter(p => p.oibId && previousVersionIds.includes(p.oibId));
             if (previousMatches.length > 1) {
               comparison.byOS[osType].duplicates.push({
                 ...availablePolicy,
@@ -122,6 +139,7 @@ const ComparisonDashboard = ({
             comparison.byOS[osType].current.push({
               ...availablePolicy,
               existingPolicy: matchedByCurrent,
+              legacyTenantPolicies: previousMatches,
               status: 'current',
               matchMethod: 'oibid'
             });
@@ -351,10 +369,25 @@ const ComparisonDashboard = ({
         <div className="wizard-header">
           <h2>Policy Comparison Dashboard</h2>
           <p>Compare your current OIB deployment with the latest version</p>
-          <p><b>Important:</b> Checks are done on policy name <i>only</i>, not settings held within!</p>
+          <p><b>Important:</b> Checks are done on OIBID or policy name match <i>only</i>, not settings held within!</p>
+          <p>Use the Validation Dashboard to verify settings.</p>
           {selectedVersion && (
             <div className="version-info">
               <span className="version-badge">Comparing against: {selectedVersion}</span>
+            </div>
+          )}
+          {Object.values(comparisonData.byOS).flatMap(osData => osData.deprecatedPolicies || []).length > 0 && (
+            <div className="deprecation-notice">
+              <AlertTriangle size={14} />
+              <span>Deprecated OIB policies deployed in this tenant - review for removal:</span>
+              {Object.values(comparisonData.byOS).flatMap(osData => osData.deprecatedPolicies || []).map(policy => (
+                <span key={policy.tenantPolicy.id} className="deprecation-replacement">
+                  {policy.tenantPolicy.displayName || policy.tenantPolicy.name}
+                  {policy.replacements.some(replacement => replacement.tenantPolicy)
+                    ? ' - replacement deployed'
+                    : ' - replacement available in OIB'}
+                </span>
+              ))}
             </div>
           )}
         </div>
@@ -579,6 +612,32 @@ const ComparisonDashboard = ({
                                 <div className="matched-policy-name">
                                   <span className="matched-label">Matched Policy:</span>
                                   <span className="matched-name">{policy.existingPolicy.displayName || policy.existingPolicy.name}</span>
+                                </div>
+                              )}
+                              {policy.lifecycleStatus === 'deprecated' && (
+                                <div className="deprecation-notice">
+                                  <AlertTriangle size={14} />
+                                  <span>
+                                    Deprecated - {policy.replacements?.some(replacement => replacement.tenantPolicy)
+                                      ? 'replacement is deployed; this policy can be reviewed for removal.'
+                                      : 'replacement available in OIB; deploy it before removing this policy.'}
+                                  </span>
+                                  {policy.replacements?.map(replacement => (
+                                    <span key={replacement.oibId} className="deprecation-replacement">
+                                      {replacement.tenantPolicy ? 'Deployed: ' : 'Replacement: '}{replacement.name}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                              {policy.legacyTenantPolicies?.length > 0 && (
+                                <div className="deprecation-notice">
+                                  <AlertTriangle size={14} />
+                                  <span>Legacy OIB version also deployed - review it for removal:</span>
+                                  {policy.legacyTenantPolicies.map(legacyPolicy => (
+                                    <span key={legacyPolicy.id} className="deprecation-replacement">
+                                      {legacyPolicy.displayName || legacyPolicy.name}
+                                    </span>
+                                  ))}
                                 </div>
                               )}
                               {policy.status === 'duplicate' && (

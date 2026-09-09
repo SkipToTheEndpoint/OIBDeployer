@@ -287,8 +287,8 @@ const Documentation = ({ onBack }) => {
           <div className="info-box">
             <Info size={16} />
             <div>
-              <p><strong>OIB Deployer Version:</strong> 1.2.1</p>
-              <p><strong>Last Updated:</strong> August 2026</p>
+              <p><strong>OIB Deployer Version:</strong> 1.2.2</p>
+              <p><strong>Last Updated:</strong> September 2026</p>
               <p><strong>Compatible with:</strong> OpenIntuneBaseline v3.0+ (OIBID matching and licensing-based filtering require v3.8+)</p>
             </div>
           </div>

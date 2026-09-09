@@ -2573,6 +2573,26 @@ p, h1, h2, h3, h4, h5, h6 {
   padding-left: 1rem;
 }
 
+.deprecation-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+  margin-bottom: 0.5rem;
+  padding: 0.5rem;
+  color: #92400e;
+  background: #fffbeb;
+  border-left: 3px solid #f59e0b;
+  font-size: 0.8125rem;
+}
+
+.deprecation-replacement {
+  flex-basis: 100%;
+  padding-left: 1.25rem;
+  color: #78350f;
+  font-weight: 500;
+}
+
 .status-badge {
   display: inline-block;
   padding: 0.25rem 0.5rem;
@@ -4039,6 +4059,68 @@ p, h1, h2, h3, h4, h5, h6 {
   color: #86efac;
 }
 
+/* Deployment results */
+[data-theme="dark"] .deployment-progress {
+  background-color: var(--bg-surface);
+}
+[data-theme="dark"] .progress-header h2,
+[data-theme="dark"] .deployment-results-list h3,
+[data-theme="dark"] .modal-header h2,
+[data-theme="dark"] .result-policy {
+  color: var(--text-primary);
+}
+[data-theme="dark"] .progress-header p,
+[data-theme="dark"] .progress-text,
+[data-theme="dark"] .deployment-time,
+[data-theme="dark"] .result-message,
+[data-theme="dark"] .modal-close {
+  color: var(--text-secondary);
+}
+[data-theme="dark"] .stat-card.success {
+  background-color: #052e1a;
+  border-color: #166534;
+}
+[data-theme="dark"] .stat-card.error {
+  background-color: #2d0a0a;
+  border-color: #7f1d1d;
+}
+[data-theme="dark"] .stat-card.pending {
+  background-color: #2d1700;
+  border-color: #92400e;
+}
+[data-theme="dark"] .stat-card.success .stat-value {
+  color: #34d399;
+}
+[data-theme="dark"] .stat-card.error .stat-value {
+  color: #fca5a5;
+}
+[data-theme="dark"] .stat-card.pending .stat-value {
+  color: #fcd34d;
+}
+[data-theme="dark"] .progress-bar,
+[data-theme="dark"] .deployment-list,
+[data-theme="dark"] .results-container {
+  background-color: var(--bg-elevated);
+  border-color: var(--border-color);
+}
+[data-theme="dark"] .deployment-item,
+[data-theme="dark"] .result-item {
+  border-bottom-color: var(--border-color);
+}
+[data-theme="dark"] .result-item:hover {
+  background-color: var(--bg-surface);
+}
+[data-theme="dark"] .deployment-actions,
+[data-theme="dark"] .modal-footer {
+  background-color: var(--bg-elevated);
+  border-color: var(--border-color);
+}
+[data-theme="dark"] .result-error {
+  color: #fca5a5;
+  background-color: #2d0a0a;
+  border-left-color: #7f1d1d;
+}
+
 /* Required permissions */
 [data-theme="dark"] .required-permissions {
   background-color: #1c0f00;
@@ -4505,6 +4587,14 @@ p, h1, h2, h3, h4, h5, h6 {
 }
 [data-theme="dark"] .duplicate-match-id {
   color: var(--text-muted);
+}
+[data-theme="dark"] .deprecation-notice {
+  color: #fcd34d;
+  background-color: #2d1700;
+  border-left-color: #f59e0b;
+}
+[data-theme="dark"] .deprecation-replacement {
+  color: #fde68a;
 }
 [data-theme="dark"] .stat-card.duplicate .stat-icon {
   color: #c4b5fd;
