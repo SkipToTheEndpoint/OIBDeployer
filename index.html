@@ -13,7 +13,13 @@
     <link rel="preconnect" href="https://api.github.com">
 
     <!-- Plausible -->
-    <script defer data-domain="deploy.openintunebaseline.com" src="https://plausible.io/js/script.js"></script>
+    <script async src="/_r7k/script.js"></script>
+    <script>
+        window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};
+        plausible.init({
+            endpoint: "/_r7k/event"
+        })
+    </script>
     
     <style>
         /* Loading screen styles */

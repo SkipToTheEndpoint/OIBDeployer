@@ -159,6 +159,16 @@ function App() {
 
   // Wizard handler functions
   const handleDeploymentTypeSelection = (type) => {
+    const workflowEvents = {
+      new: 'New Deployment',
+      existing: 'Existing Deployment',
+      validate: 'Policy Validation'
+    };
+
+    if (workflowEvents[type] && typeof window.plausible === 'function') {
+      window.plausible(workflowEvents[type]);
+    }
+
     setDeploymentType(type);
     if (type === 'new') {
       setWizardStep('policy-types');
