@@ -18,6 +18,7 @@ import graphAPI from './utils/graph-api';
 import githubAPI from './utils/github-api';
 import { getTenantDisplayName, isValidTenantId } from './utils/tenant';
 import { applyTenantVariablesToPolicy } from './utils/tenant-variables';
+import { getPolicySources } from './utils/release-manifest';
 import oibLogo from '../assets/oib-logo.svg';
 import './styles/App.css';
 
@@ -62,6 +63,10 @@ function App() {
   const [wizardStep, setWizardStep] = useState('deployment-type'); // wizard sub-steps
   const [availablePolicies, setAvailablePolicies] = useState({});
   const [latestVersion, setLatestVersion] = useState(null);
+  const [releasePlatforms, setReleasePlatforms] = useState([]);
+  const [isLoadingReleaseManifest, setIsLoadingReleaseManifest] = useState(true);
+  const [releaseManifestError, setReleaseManifestError] = useState(null);
+  const [allowPrerelease, setAllowPrerelease] = useState(false);
 
   // Validation state
   const [validationResults, setValidationResults] = useState(new Map());
@@ -71,6 +76,25 @@ function App() {
 
   useEffect(() => {
     initializeApp();
+  }, []);
+
+  const loadReleaseManifest = async () => {
+    try {
+      setIsLoadingReleaseManifest(true);
+      setReleaseManifestError(null);
+      const manifest = await githubAPI.getReleaseManifest();
+      setReleasePlatforms(manifest.platforms);
+    } catch (error) {
+      console.error('Failed to load release manifest:', error);
+      setReleasePlatforms([]);
+      setReleaseManifestError(error.message);
+    } finally {
+      setIsLoadingReleaseManifest(false);
+    }
+  };
+
+  useEffect(() => {
+    loadReleaseManifest();
   }, []);
 
   // Update page title based on current step
@@ -185,19 +209,22 @@ function App() {
   };
 
   const loadPoliciesForSelectedOS = async (osTypes) => {
-    const branchOverride = import.meta.env.VITE_BRANCH_OVERRIDE;
-    const latest = branchOverride || 'main';
-    const versionLabel = branchOverride
-      ? `Branch override: ${branchOverride}`
-      : 'Latest (main branch)';
-    const sessionKey = `oib-latest-data-v2-${latest}`;
-
     try {
+      const policySources = getPolicySources(releasePlatforms, osTypes, allowPrerelease);
+      const versionLabel = Object.entries(policySources)
+        .map(([osType, source]) => `${osType}: ${source.name} (${source.channel})`)
+        .join(', ');
+      const sourceKey = Object.entries(policySources)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([osType, source]) => `${osType}:${source.branch}`)
+        .join('|');
+      const sessionKey = `oib-latest-data-v3-${sourceKey}`;
+
       setIsLoading(true);
       setAvailablePolicies({}); // Clear so comparison dashboard shows loading state
       setLatestVersion(versionLabel);
 
-      console.log(`Fetching policies for [${osTypes.join(', ')}] from branch: ${latest}`);
+      console.log(`Fetching policies for [${osTypes.join(', ')}] from documented branches: ${sourceKey}`);
 
       // Check session cache for already-fetched OS data
       let cachedPolicies = null;
@@ -226,12 +253,12 @@ function App() {
           const fetched = {};
           for (const os of osTypesToFetch) {
             try {
-              const osPolicies = await githubAPI.getPoliciesForOS(os, latest);
+              const osPolicies = await githubAPI.getPoliciesForOS(os, policySources[os].branch);
               if (osPolicies && Object.keys(osPolicies).length > 0) {
                 fetched[os] = osPolicies;
               }
             } catch (error) {
-              console.warn(`Failed to load ${os} policies from branch ${latest}:`, error);
+              console.warn(`Failed to load ${os} policies from branch ${policySources[os].branch}:`, error);
             }
           }
           return fetched;
@@ -300,12 +327,14 @@ function App() {
     if (wizardStep === 'policy-types') {
       setWizardStep('deployment-type');
       setDeploymentType(null);
+      setLatestVersion(null);
     } else if (wizardStep === 'policy-selection') {
       setWizardStep('policy-types');
       setSelectedPolicyTypes([]);
     } else if (wizardStep === 'os-selection') {
       setWizardStep('deployment-type');
       setDeploymentType(null);
+      setLatestVersion(null);
     } else if (wizardStep === 'comparison-dashboard') {
       if (deploymentType === 'existing' || deploymentType === 'validate') {
         setWizardStep('os-selection');
@@ -313,6 +342,7 @@ function App() {
       } else {
         setWizardStep('deployment-type');
         setDeploymentType(null);
+        setLatestVersion(null);
       }
     }
   };
@@ -503,6 +533,7 @@ function App() {
     setSelectedOSTypes([]);
     setTenantLicensing(null);
     setUsingDefenderAV(null);
+    setLatestVersion(null);
     setCurrentStep('wizard');
     setWizardStep('deployment-type');
   };
@@ -590,13 +621,12 @@ function App() {
   // Fetch the unique policyType values from the manifest(s) for the given OS types.
   // Used by QuickDeployWizard to build the dynamic policy type selection step.
   const fetchPolicyTypesForOS = async (osTypes) => {
-    const branchOverride = import.meta.env.VITE_BRANCH_OVERRIDE;
-    const branch = branchOverride || 'main';
+    const policySources = getPolicySources(releasePlatforms, osTypes, allowPrerelease);
 
     const typeSet = new Set();
     await Promise.all(osTypes.map(async (osType) => {
       try {
-        const manifestData = await githubAPI.getPolicyManifest(osType, branch);
+        const manifestData = await githubAPI.getPolicyManifest(osType, policySources[osType].branch);
         if (manifestData?.manifest?.policies) {
           manifestData.manifest.policies.forEach(p => {
             if (p.policyType) typeSet.add(p.policyType);
@@ -611,9 +641,6 @@ function App() {
   };
 
   const handleRefreshGitHubData = async () => {
-    const branchOverride = import.meta.env.VITE_BRANCH_OVERRIDE;
-    const latest = branchOverride || 'main';
-    sessionStorage.removeItem(`oib-latest-data-${latest}`);
     githubAPI.clearCache();
     if (selectedOSTypes.length > 0) {
       await loadPoliciesForSelectedOS(selectedOSTypes);
@@ -784,6 +811,12 @@ function App() {
             onBack={handleWizardBack}
             selectedVersion={latestVersion}
             fetchPolicyTypes={fetchPolicyTypesForOS}
+            platforms={releasePlatforms}
+            isLoadingPlatforms={isLoadingReleaseManifest}
+            platformError={releaseManifestError}
+            onRetryPlatforms={loadReleaseManifest}
+            allowPrerelease={allowPrerelease}
+            onAllowPrereleaseChange={setAllowPrerelease}
           />
         )}
 
@@ -792,6 +825,12 @@ function App() {
             onOSSelected={handleOSSelection}
             onBack={handleWizardBack}
             selectedVersion={latestVersion}
+            platforms={releasePlatforms}
+            isLoadingPlatforms={isLoadingReleaseManifest}
+            platformError={releaseManifestError}
+            onRetryPlatforms={loadReleaseManifest}
+            allowPrerelease={allowPrerelease}
+            onAllowPrereleaseChange={setAllowPrerelease}
           />
         )}
 
