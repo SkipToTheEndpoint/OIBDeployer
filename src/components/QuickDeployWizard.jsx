@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Settings, FileText, RefreshCw, ArrowRight, ArrowLeft, CheckCircle, Monitor, Laptop, Smartphone, Tablet, Loader } from 'lucide-react';
+import { Shield, Settings, FileText, RefreshCw, ArrowRight, ArrowLeft, CheckCircle, Loader } from 'lucide-react';
+import ReleasePlatformCards from './ReleasePlatformCards';
+import ReleaseChannelWarningModal from './ReleaseChannelWarningModal';
+import { getPlatformsForChannel } from '../utils/release-manifest';
 
 // Display metadata for all known manifest policyType values.
 // Add new entries here whenever new types are introduced in PolicyManifest.json.
@@ -63,7 +66,18 @@ const ENTERPRISE_ONLY_POLICY_TYPES = ['DriverUpdateProfiles'];
 // Policy types that conflict with Autopatch-managed updates
 const AUTOPATCH_MANAGED_POLICY_TYPES = ['UpdatePolicies', 'DriverUpdateProfiles'];
 
-const QuickDeployWizard = ({ onPolicyTypesSelected, onBack, selectedVersion, fetchPolicyTypes }) => {
+const QuickDeployWizard = ({
+  onPolicyTypesSelected,
+  onBack,
+  selectedVersion,
+  fetchPolicyTypes,
+  platforms,
+  isLoadingPlatforms,
+  platformError,
+  onRetryPlatforms,
+  allowPrerelease,
+  onAllowPrereleaseChange
+}) => {
   const [selectedPolicyTypes, setSelectedPolicyTypes] = useState([]);
   const [selectedOS, setSelectedOS] = useState([]);
   const [currentStep, setCurrentStep] = useState('os-selection');
@@ -74,52 +88,7 @@ const QuickDeployWizard = ({ onPolicyTypesSelected, onBack, selectedVersion, fet
   const [tenantLicensing, setTenantLicensing] = useState(null); // 'business-premium' | 'e3-e5-e7'
   const [usingDefenderAV, setUsingDefenderAV] = useState(null); // true | false
   const [usingAutopatch, setUsingAutopatch] = useState(null); // true | false
-
-  const osOptions = [
-    {
-      id: 'WINDOWS',
-      name: 'Windows',
-      description: 'Windows 11 Devices deployed by Autopilot',
-      icon: Monitor,
-      color: 'blue',
-      enabled: true
-    },
-    {
-      id: 'MACOS',
-      name: 'macOS',
-      description: 'Apple MacOS Devices deployed by ABM',
-      icon: Laptop,
-      color: 'gray',
-      enabled: true
-    },
-    {
-      id: 'BYOD',
-      name: 'BYOD',
-      description: 'App Protection Policies',
-      icon: Shield,
-      color: 'green',
-      enabled: false,
-      comingSoon: true
-    },
-    {
-      id: 'iOS',
-      name: 'iOS',
-      description: 'Fully-Managed iOS Devices',
-      icon: Smartphone,
-      color: 'orange',
-      enabled: false,
-      comingSoon: true
-    },
-    {
-      id: 'ANDROID',
-      name: 'Android',
-      description: 'Not Available',
-      icon: Tablet,
-      color: 'purple',
-      enabled: false,
-      comingSoon: false
-    }
-  ];
+  const [channelWarningPlatforms, setChannelWarningPlatforms] = useState({ unstable: [], beta: [] });
 
   // Resolve the list of policy type cards from fetched manifest types (or fallback).
   // Each card is { id, name, description, icon, color }.
@@ -185,6 +154,16 @@ const QuickDeployWizard = ({ onPolicyTypesSelected, onBack, selectedVersion, fet
 
   const handleOSContinue = () => {
     if (selectedOS.length === 0) return;
+
+    const warningPlatforms = {
+      unstable: getPlatformsForChannel(platforms, selectedOS, allowPrerelease, 'unstable'),
+      beta: getPlatformsForChannel(platforms, selectedOS, allowPrerelease, 'beta')
+    };
+    if (warningPlatforms.unstable.length > 0 || warningPlatforms.beta.length > 0) {
+      setChannelWarningPlatforms(warningPlatforms);
+      return;
+    }
+
     setCurrentStep('licensing');
   };
 
@@ -249,40 +228,29 @@ const QuickDeployWizard = ({ onPolicyTypesSelected, onBack, selectedVersion, fet
             <h3>Choose Operating Systems</h3>
           </div>
 
-          <div className="policy-types-grid">
-            {osOptions.map(os => {
-              const IconComponent = os.icon;
-              const isSelected = selectedOS.includes(os.id);
-              const isDisabled = !os.enabled;
-              
-              return (
-                <div 
-                  key={os.id}
-                  className={`policy-type-card ${isSelected ? 'selected' : ''} ${os.color} ${isDisabled ? 'disabled' : ''}`}
-                  onClick={() => toggleOS(os.id, os.enabled)}
-                >
-                  <div className="card-header">
-                    <div className="card-icon">
-                      <IconComponent size={32} />
-                    </div>
-                    <div className="card-check">
-                      {isSelected && <CheckCircle size={20} />}
-                    </div>
-                    {os.comingSoon && (
-                      <div className="coming-soon-badge">
-                        Coming Soon
-                      </div>
-                    )}
-                  </div>
-                  <div className="card-content">
-                    <h4>{os.name}</h4>
-                    <p>{os.description}</p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <ReleasePlatformCards
+            platforms={platforms}
+            isLoading={isLoadingPlatforms}
+            error={platformError}
+            onRetry={onRetryPlatforms}
+            selectedOS={selectedOS}
+            onToggle={toggleOS}
+            allowPrerelease={allowPrerelease}
+            onAllowPrereleaseChange={onAllowPrereleaseChange}
+          />
         </div>
+      )}
+
+      {(channelWarningPlatforms.unstable.length > 0 || channelWarningPlatforms.beta.length > 0) && (
+        <ReleaseChannelWarningModal
+          unstablePlatforms={channelWarningPlatforms.unstable}
+          betaPlatforms={channelWarningPlatforms.beta}
+          onCancel={() => setChannelWarningPlatforms({ unstable: [], beta: [] })}
+          onConfirm={() => {
+            setChannelWarningPlatforms({ unstable: [], beta: [] });
+            setCurrentStep('licensing');
+          }}
+        />
       )}
 
       {/* Licensing Questions Step */}

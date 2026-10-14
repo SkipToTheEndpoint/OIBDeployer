@@ -157,6 +157,7 @@ class GitHubAPI {
                         type: 'tag'
                     });
                 }
+
             });
             
             // Convert to array and sort by name (newest first)
@@ -175,6 +176,39 @@ class GitHubAPI {
         } catch (error) {
             console.error('Failed to get releases:', error);
             throw new Error('Failed to fetch available versions from OpenIntuneBaseline repository');
+        }
+    }
+
+    async getReleaseManifest() {
+        const cacheKey = 'release_manifest';
+        const cached = this.cache.get(cacheKey);
+        if (cached && this.isCacheValid(cached)) {
+            return cached.data;
+        }
+
+        const url = `https://raw.githubusercontent.com/${this.config.owner}/${this.config.repo}/main/releases.json`;
+        try {
+            const response = await fetch(url, {
+                headers: {
+                    'Accept': 'application/json',
+                    'User-Agent': 'OIBDeployer/1.0'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Release manifest request failed: ${response.status} ${response.statusText}`);
+            }
+
+            const manifest = await response.json();
+            if (!Array.isArray(manifest.platforms)) {
+                throw new Error('Release manifest does not contain a platforms array');
+            }
+
+            this.cache.set(cacheKey, { data: manifest, timestamp: Date.now() });
+            return manifest;
+        } catch (error) {
+            console.error(`Failed to load release manifest: ${url}`, error);
+            throw new Error('Failed to load the OpenIntuneBaseline release manifest');
         }
     }
 
