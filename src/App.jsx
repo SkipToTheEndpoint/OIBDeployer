@@ -618,8 +618,8 @@ function App() {
     }
   };
 
-  // Fetch the unique policyType values from the manifest(s) for the given OS types.
-  // Used by QuickDeployWizard to build the dynamic policy type selection step.
+  // Fetch policy types from each release manifest, falling back to repository
+  // paths for releases that do not yet provide a PolicyManifest.json.
   const fetchPolicyTypesForOS = async (osTypes) => {
     const policySources = getPolicySources(releasePlatforms, osTypes, allowPrerelease);
 
@@ -631,9 +631,12 @@ function App() {
           manifestData.manifest.policies.forEach(p => {
             if (p.policyType) typeSet.add(p.policyType);
           });
+        } else {
+          const types = await githubAPI.getPolicyTypesForOS(osType, policySources[osType].branch);
+          types.forEach(type => typeSet.add(type));
         }
-      } catch {
-        // Pre-3.8 or unavailable manifest — caller will fall back to defaults
+      } catch (error) {
+        console.warn(`Failed to discover policy types for ${osType}:`, error);
       }
     }));
 

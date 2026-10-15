@@ -223,7 +223,10 @@ class GitHubAPI {
             const structure = {
                 WINDOWS: { directories: [], files: [] },
                 MACOS: { directories: [], files: [] },
-                BYOD: { directories: [], files: [] }
+                IOS: { directories: [], files: [] },
+                ANDROID: { directories: [], files: [] },
+                BYOD: { directories: [], files: [] },
+                WINDOWS365: { directories: [], files: [] }
             };
             
             tree.tree.forEach(item => {
@@ -284,6 +287,23 @@ class GitHubAPI {
         if (pathLower.includes('intunemanagement')) return 'IntuneManagement';
         
         return 'Unknown';
+    }
+
+    // Derive available policy types from repository paths for releases that do
+    // not yet provide a PolicyManifest.json.
+    async getPolicyTypesForOS(osType, version = 'main') {
+        const structure = await this.getRepositoryStructure(version);
+        const osStructure = structure[osType.toUpperCase()];
+
+        if (!osStructure) {
+            throw new Error(`Unsupported OS type: ${osType}`);
+        }
+
+        return [...new Set(
+            osStructure.files
+                .map(file => file.type)
+                .filter(type => type !== 'Unknown')
+        )];
     }
 
     // Get policies for a specific OS and version - Enhanced with policy content loading

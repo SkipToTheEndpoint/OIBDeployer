@@ -57,7 +57,7 @@ const POLICY_TYPE_META = {
   },
 };
 
-// Hardcoded fallback used when no manifest is available (pre-3.8 branches)
+// Last-resort fallback when neither a release manifest nor repository paths can be read.
 const FALLBACK_POLICY_TYPES = ['CompliancePolicies', 'EndpointSecurity', 'SettingsCatalog', 'UpdatePolicies'];
 
 // Policy types that require a Windows Enterprise entitlement (unavailable on Business Premium)
@@ -65,6 +65,7 @@ const ENTERPRISE_ONLY_POLICY_TYPES = ['DriverUpdateProfiles'];
 
 // Policy types that conflict with Autopatch-managed updates
 const AUTOPATCH_MANAGED_POLICY_TYPES = ['UpdatePolicies', 'DriverUpdateProfiles'];
+const WINDOWS_PLATFORM_FOLDERS = ['WINDOWS', 'WINDOWS365'];
 
 const QuickDeployWizard = ({
   onPolicyTypesSelected,
@@ -89,6 +90,7 @@ const QuickDeployWizard = ({
   const [usingDefenderAV, setUsingDefenderAV] = useState(null); // true | false
   const [usingAutopatch, setUsingAutopatch] = useState(null); // true | false
   const [channelWarningPlatforms, setChannelWarningPlatforms] = useState({ unstable: [], beta: [] });
+  const requiresWindowsQuestions = selectedOS.some(osType => WINDOWS_PLATFORM_FOLDERS.includes(osType));
 
   // Resolve the list of policy type cards from fetched manifest types (or fallback).
   // Each card is { id, name, description, icon, color }.
@@ -164,11 +166,10 @@ const QuickDeployWizard = ({
       return;
     }
 
-    setCurrentStep('licensing');
+    proceedFromOSSelection();
   };
 
-  const handleLicensingContinue = async () => {
-    if (!tenantLicensing || usingDefenderAV === null || usingAutopatch === null) return;
+  const loadPolicyTypes = async () => {
     setCurrentStep('policy-types');
     setIsLoadingTypes(true);
     try {
@@ -185,6 +186,23 @@ const QuickDeployWizard = ({
     }
   };
 
+  const proceedFromOSSelection = () => {
+    if (requiresWindowsQuestions) {
+      setCurrentStep('licensing');
+      return;
+    }
+
+    setTenantLicensing(null);
+    setUsingDefenderAV(null);
+    setUsingAutopatch(null);
+    loadPolicyTypes();
+  };
+
+  const handleLicensingContinue = () => {
+    if (!tenantLicensing || usingDefenderAV === null || usingAutopatch === null) return;
+    loadPolicyTypes();
+  };
+
   const handlePolicyTypesContinue = () => {
     if (selectedPolicyTypes.length > 0) {
       onPolicyTypesSelected({ policyTypes: selectedPolicyTypes, osTypes: selectedOS, tenantLicensing, usingDefenderAV, usingAutopatch });
@@ -193,7 +211,7 @@ const QuickDeployWizard = ({
 
   const handleStepBack = () => {
     if (currentStep === 'policy-types') {
-      setCurrentStep('licensing');
+      setCurrentStep(requiresWindowsQuestions ? 'licensing' : 'os-selection');
     } else if (currentStep === 'licensing') {
       setCurrentStep('os-selection');
     } else {
@@ -248,7 +266,7 @@ const QuickDeployWizard = ({
           onCancel={() => setChannelWarningPlatforms({ unstable: [], beta: [] })}
           onConfirm={() => {
             setChannelWarningPlatforms({ unstable: [], beta: [] });
-            setCurrentStep('licensing');
+            proceedFromOSSelection();
           }}
         />
       )}
