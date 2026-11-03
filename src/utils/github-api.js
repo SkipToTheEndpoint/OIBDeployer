@@ -68,7 +68,6 @@ class GitHubAPI {
             method: options.method || 'GET',
             headers: {
                 'Accept': 'application/vnd.github.v3+json',
-                'User-Agent': 'OIBDeployer/1.0',
                 ...(this.config.token && { 'Authorization': `token ${this.config.token}` })
             }
         };
@@ -188,12 +187,8 @@ class GitHubAPI {
 
         const url = `https://raw.githubusercontent.com/${this.config.owner}/${this.config.repo}/main/releases.json`;
         try {
-            const response = await fetch(url, {
-                headers: {
-                    'Accept': 'application/json',
-                    'User-Agent': 'OIBDeployer/1.0'
-                }
-            });
+            // Keep this a simple CORS request: custom headers (e.g. User-Agent) trigger a preflight that raw.githubusercontent.com rejects
+            const response = await fetch(url);
 
             if (!response.ok) {
                 throw new Error(`Release manifest request failed: ${response.status} ${response.statusText}`);
