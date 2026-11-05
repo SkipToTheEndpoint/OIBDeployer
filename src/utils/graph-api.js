@@ -589,6 +589,8 @@ class GraphAPI {
                     return 'AdminTemplates';
                 case 'updatePolicy':
                     return 'UpdatePolicies';
+                case 'appProtection':
+                    return 'AppProtection';
                 default:
                     return policy.type;
             }
@@ -739,6 +741,10 @@ class GraphAPI {
             case 'AdminTemplates':
                 return this.transformAdminTemplateForImport(transformedPolicy, currentTenantId);
             
+            case 'AppProtection':
+            case 'AppProtectionPolicies':
+                return this.transformAppProtectionForImport(transformedPolicy, currentTenantId);
+
             case 'UpdatePolicies':
                 // Check if this is a legacy WUfB device configuration
                 if (transformedPolicy['@odata.type'] && 
@@ -929,6 +935,56 @@ class GraphAPI {
         return transformed;
     }
 
+    // Transform App Protection (MAM) Policies. Apps and assignments are not part of the
+    // create payload; apps are attached afterwards via the targetApps action.
+    transformAppProtectionForImport(policy, tenantId = null) {
+        let transformed = { ...policy };
+
+        if (tenantId) {
+            transformed = this.replaceTenantVariables(transformed, tenantId);
+        }
+
+        // Remove OData annotations (including "<prop>@odata.type" enum hints) but keep the main @odata.type
+        Object.keys(transformed).forEach(key => {
+            if (key.includes('@odata') && key !== '@odata.type') {
+                delete transformed[key];
+            }
+        });
+
+        ['apps', 'assignments', 'deploymentSummary', 'deployedAppCount', 'isAssigned'].forEach(prop => {
+            delete transformed[prop];
+        });
+
+        return transformed;
+    }
+
+    // Get the Graph endpoint for an App Protection policy based on its @odata.type
+    determineAppProtectionEndpoint(policy) {
+        const odataType = (policy?.['@odata.type'] || '').toLowerCase();
+
+        if (odataType.includes('androidmanagedappprotection')) {
+            return this.config.endpoints.androidManagedAppProtections;
+        }
+        if (odataType.includes('iosmanagedappprotection')) {
+            return this.config.endpoints.iosManagedAppProtections;
+        }
+        if (odataType.includes('windowsmanagedappprotection')) {
+            return this.config.endpoints.windowsManagedAppProtections;
+        }
+        throw new Error(`Unsupported App Protection policy @odata.type: ${policy?.['@odata.type'] || 'missing'}`);
+    }
+
+    // Build the targetApps payload from the apps array stored in an exported policy
+    buildTargetAppsPayload(apps) {
+        const targetApps = (Array.isArray(apps) ? apps : [])
+            .filter(app => app?.mobileAppIdentifier)
+            .map(app => ({
+                '@odata.type': '#microsoft.graph.managedMobileApp',
+                mobileAppIdentifier: app.mobileAppIdentifier
+            }));
+        return { apps: targetApps };
+    }
+
     // Transform Administrative Template Policies
     transformAdminTemplateForImport(policy, tenantId = null) {
         let transformed = { ...policy };
@@ -1018,6 +1074,10 @@ class GraphAPI {
                 case 'AdminTemplates':
                     endpoint = this.config.endpoints.groupPolicyConfigurations;
                     break;
+                case 'AppProtection':
+                case 'AppProtectionPolicies':
+                    endpoint = this.determineAppProtectionEndpoint(transformedPolicy);
+                    break;
                 case 'UpdatePolicies':
                     // Determine the correct endpoint based on policy content and @odata.type
                     endpoint = this.determineUpdatePolicyEndpoint(transformedPolicy);
@@ -1028,6 +1088,21 @@ class GraphAPI {
 
             console.log(`Deploying ${effectiveType} policy: ${fileName}`);
             const result = await this.makeRequest(endpoint, 'POST', transformedPolicy);
+
+            if (effectiveType === 'AppProtection' || effectiveType === 'AppProtectionPolicies') {
+                // "allMicrosoftApps" policies list their expanded apps in the export, but
+                // targeting them explicitly would switch the policy to a custom app list.
+                const targetApps = policy.appGroupType === 'allMicrosoftApps'
+                    ? { apps: [] }
+                    : this.buildTargetAppsPayload(policy.apps);
+                if (targetApps.apps.length > 0) {
+                    try {
+                        await this.makeRequest(`${endpoint}/${result.id}/targetApps`, 'POST', targetApps);
+                    } catch (appsError) {
+                        throw new Error(`Policy created (id ${result.id}) but targeting its apps failed: ${appsError.message}`);
+                    }
+                }
+            }
             
             return {
                 success: true,

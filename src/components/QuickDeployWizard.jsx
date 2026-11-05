@@ -49,6 +49,12 @@ const POLICY_TYPE_META = {
     icon: FileText,
     color: 'purple'
   },
+  AppProtection: {
+    name: 'App Protection Policies',
+    description: 'Application data protection and access control for managed apps',
+    icon: Shield,
+    color: 'teal'
+  },
   AppProtectionPolicies: {
     name: 'App Protection Policies',
     description: 'Application data protection and access control for managed apps',

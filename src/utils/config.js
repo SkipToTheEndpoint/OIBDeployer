@@ -60,6 +60,7 @@ export const CONFIG = {
             // App Protection Policies
             iosManagedAppProtections: '/deviceAppManagement/iosManagedAppProtections',
             androidManagedAppProtections: '/deviceAppManagement/androidManagedAppProtections',
+            windowsManagedAppProtections: '/deviceAppManagement/windowsManagedAppProtections',
             
             // Windows Information Protection
             windowsInformationProtectionPolicies: '/deviceAppManagement/windowsInformationProtectionPolicies',
