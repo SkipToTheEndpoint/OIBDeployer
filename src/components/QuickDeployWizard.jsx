@@ -49,6 +49,12 @@ const POLICY_TYPE_META = {
     icon: FileText,
     color: 'purple'
   },
+  AppProtection: {
+    name: 'App Protection Policies',
+    description: 'Application data protection and access control for managed apps',
+    icon: Shield,
+    color: 'teal'
+  },
   AppProtectionPolicies: {
     name: 'App Protection Policies',
     description: 'Application data protection and access control for managed apps',
@@ -356,7 +362,7 @@ const QuickDeployWizard = ({
                 </div>
                 <div className="card-content">
                   <h4>Yes</h4>
-                  <p>Autopatch manages Windows Update deployment</p>
+                  <p>Autopatch manages Windows Update deployment (Recommended)</p>
                 </div>
               </div>
               <div

@@ -60,6 +60,7 @@ export const CONFIG = {
             // App Protection Policies
             iosManagedAppProtections: '/deviceAppManagement/iosManagedAppProtections',
             androidManagedAppProtections: '/deviceAppManagement/androidManagedAppProtections',
+            windowsManagedAppProtections: '/deviceAppManagement/windowsManagedAppProtections',
             
             // Windows Information Protection
             windowsInformationProtectionPolicies: '/deviceAppManagement/windowsInformationProtectionPolicies',
@@ -108,7 +109,7 @@ export const CONFIG = {
     // Application settings
     app: {
         name: 'OIB Deployer',
-        version: '1.3.0',
+        version: '1.3.1',
         maxConcurrentDeployments: 5,
         defaultPollingInterval: 2000, // 2 seconds
         

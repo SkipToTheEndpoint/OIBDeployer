@@ -376,6 +376,8 @@ const PolicySelector = ({ existingPolicies, onPolicySelection, onDeploy, isLoadi
       'EndpointSecurity': 'Endpoint Security',
       'AdminTemplates': 'Administrative Templates',
       'UpdatePolicies': 'Update Policies',
+      'AppProtection': 'App Protection Policies',
+      'AppProtectionPolicies': 'App Protection Policies',
       'PowerShellScripts': 'PowerShell Scripts'
     };
     return typeNames[type] || type;
