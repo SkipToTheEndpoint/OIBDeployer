@@ -356,7 +356,7 @@ const QuickDeployWizard = ({
                 </div>
                 <div className="card-content">
                   <h4>Yes</h4>
-                  <p>Autopatch manages Windows Update deployment</p>
+                  <p>Autopatch manages Windows Update deployment (Recommended)</p>
                 </div>
               </div>
               <div

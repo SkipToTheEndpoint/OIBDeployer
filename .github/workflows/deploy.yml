@@ -18,6 +18,9 @@ jobs:
       
     - name: Setup Node.js
       uses: actions/setup-node@v4
+      with:
+        node-version: '26'
+        check-latest: true
         
     - name: Install dependencies
       uses: bahmutov/npm-install@v1

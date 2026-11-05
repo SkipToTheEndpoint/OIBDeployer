@@ -6,7 +6,7 @@ This document outlines the setup requirements for running OIB Deployer either lo
 
 - Microsoft Entra ID (Azure AD) tenant with administrative access
 - Microsoft Intune license
-- Node.js 20.19+ (or 22.12+) and npm
+- The latest patched Node.js 22 (22.12 or later), 24, or 26 release and npm
 
 ## Azure App Registration Setup
 
