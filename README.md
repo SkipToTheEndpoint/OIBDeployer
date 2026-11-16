@@ -23,9 +23,21 @@ Before running the application, you must create an Entra ID App Registration:
 4. Click **Register**
 5. Note the **Application (client) ID** - you'll need this for configuration
 6. Under **API permissions**, add:
-   - **Microsoft Graph**: `DeviceManagementConfiguration.ReadWrite.All` (Delegated permission)
-   - (Optional) Grant admin consent for your organization
+   - **Microsoft Graph**: `DeviceManagementConfiguration.ReadWrite.All` (Delegated permission) — required for the standard policy workflow.
+   - **Microsoft Graph**: `DeviceManagementApps.ReadWrite.All` (Delegated permission) — required only for App Protection policies. This can be added and granted in advance, or requested just in time by the application.
+   - Grant admin consent for your organization when your tenant requires administrator approval for Intune delegated permissions.
 7. Under **Authentication**, click **Add a platform** and select **Single-page application**, then add your redirect URI(s) there (this app uses the authorization code + PKCE flow via MSAL.js, not the legacy implicit grant — do not enable implicit grant tokens)
+
+### App Protection policy permission workflow
+
+OIB Deployer requests the minimum permissions required for the policies selected:
+
+1. Signing in requests `DeviceManagementConfiguration.ReadWrite.All`; App Protection access is not requested at this stage.
+2. Select one or more **App Protection** policies. The deployment button changes to **Prompt for Additional Permissions & Deploy**.
+3. Selecting that button opens a Microsoft sign-in/consent prompt for `DeviceManagementApps.ReadWrite.All`.
+4. After the administrator grants consent, the App Protection policies deploy. The consent is retained by Entra ID, so it is not normally requested again for that user and tenant.
+
+If the tenant requires administrator approval, a user who cannot grant the permission will be shown the organization’s approval flow instead. An Entra administrator can avoid the deployment-time prompt by granting admin consent for `DeviceManagementApps.ReadWrite.All` in advance.
 
 ## Local Development Setup
 

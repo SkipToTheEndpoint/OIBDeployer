@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, CheckCircle, HelpCircle, Package, Filter, ArrowLeft, Upload, Plus, BarChart3 } from 'lucide-react';
+import { ConflictNotice, ConflictPairsNotice, ConflictTag } from './ConflictNotice';
+import { getPolicyConflicts, findSelectedConflictPairs } from '../utils/conflicts';
 
 const FilteredPolicySelector = ({ 
   existingPolicies, 
@@ -19,6 +21,9 @@ const FilteredPolicySelector = ({
   const [typeFilter, setTypeFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [showGatedPolicies, setShowGatedPolicies] = useState(false);
+  const requiresAdditionalPermissions = selectedPolicies.some(policy =>
+    policy.policyType === 'AppProtection' || policy.policyType === 'AppProtectionPolicies'
+  );
 
   // Check if a policy from the OIB repo already exists in the tenant.
   // Pass 1: OIBID match (v3.8+ policies with a GUID in description).
@@ -230,6 +235,7 @@ const FilteredPolicySelector = ({
   const newPoliciesCount = filteredPolicies.filter(p => p.status === 'new').length;
   const existingPoliciesCount = filteredPolicies.filter(p => p.status === 'existing').length;
   const gatedPoliciesCount = getAllPolicies().filter(p => p.gated).length;
+  const selectedConflictPairs = findSelectedConflictPairs(selectedPolicies);
 
   return (
     <div className="wizard-container comparison-dashboard">
@@ -254,6 +260,10 @@ const FilteredPolicySelector = ({
             </button>
           </p>
         )}
+        <ConflictPairsNotice
+          pairs={selectedConflictPairs}
+          message="Selected policies conflict with each other - deploy only one of each pair:"
+        />
       </div>
 
       {/* Filter Section */}
@@ -430,14 +440,22 @@ const FilteredPolicySelector = ({
                               `${p.osType}-${p.policyType}-${p.name}` === `${policy.osType}-${policy.policyType}-${policy.name}`
                             );
                             
+                            const policyConflicts = getPolicyConflicts(policy, {
+                              tenantPolicies: existingPolicies || [],
+                              selectedPolicies
+                            });
+                            
                             return (
                               <div 
                                 key={`${policy.osType}-${policy.policyType}-${policy.name}-${index}`}
-                                className={`policy-item ${isSelected ? 'selected' : ''} ${policy.status} ${policy.gated ? 'gated' : ''}`}
+                                className={`policy-item ${isSelected ? 'selected' : ''} ${policy.status} ${policy.gated ? 'gated' : ''} ${policyConflicts.length ? 'conflicting' : ''}`}
                                 onClick={() => handlePolicyToggle(policy)}
                               >
                                 <div className="policy-details">
-                                  <h5 className="policy-name">{policy.name.replace('.json', '')}</h5>
+                                  <h5 className="policy-name">
+                                    {policy.name.replace('.json', '')}
+                                    {policyConflicts.length > 0 && <ConflictTag />}
+                                  </h5>
                                   {(policy.skuRequirements || policy.licenseRequirements) && (
                                     <div className="policy-req-tags">
                                       {policy.skuRequirements === 'Enterprise' && (
@@ -448,6 +466,7 @@ const FilteredPolicySelector = ({
                                       )}
                                     </div>
                                   )}
+                                  <ConflictNotice conflicts={policyConflicts} />
                                 </div>
 
                                 <div className="policy-actions">
@@ -499,8 +518,13 @@ const FilteredPolicySelector = ({
               className="btn-primary"
               onClick={() => onDeploy(selectedPolicies)}
               disabled={isLoading}
+              title={requiresAdditionalPermissions
+                ? 'Prompts for DeviceManagementApps.ReadWrite.All before deployment'
+                : undefined}
             >
-              Deploy Selected Policies ({selectedPolicies.length})
+              {requiresAdditionalPermissions
+                ? `Prompt for Additional Permissions & Deploy (${selectedPolicies.length})`
+                : `Deploy Selected Policies (${selectedPolicies.length})`}
               <Upload size={16} />
             </button>
           )}

@@ -1,4 +1,4 @@
-import { PublicClientApplication } from '@azure/msal-browser';
+import { PublicClientApplication, InteractionRequiredAuthError } from '@azure/msal-browser';
 import { CONFIG } from './config.js';
 
 class AuthService {
@@ -16,7 +16,8 @@ class AuthService {
                 auth: {
                     clientId: CONFIG.msal.clientId,
                     authority: CONFIG.msal.authority,
-                    redirectUri: CONFIG.msal.redirectUri
+                    redirectUri: CONFIG.msal.redirectUri,
+                    popupRelayUri: CONFIG.msal.popupRelayUri
                 },
                 cache: {
                     cacheLocation: 'sessionStorage',
@@ -87,14 +88,37 @@ class AuthService {
         }
     }
 
-    async getAccessToken() {
+    // The interactive path must be called directly from a user gesture so browsers
+    // allow its popup; otherwise first attempt to use the cached consent silently.
+    async ensureScopes(scopes, interactive = false) {
+        if (!this.account) {
+            throw new Error('No account available');
+        }
+
+        const request = { scopes, account: this.account };
+        if (interactive) {
+            await this.msalInstance.acquireTokenPopup(request);
+            return;
+        }
+
+        try {
+            await this.msalInstance.acquireTokenSilent(request);
+        } catch (error) {
+            if (!(error instanceof InteractionRequiredAuthError)) {
+                throw error;
+            }
+            await this.msalInstance.acquireTokenPopup(request);
+        }
+    }
+
+    async getAccessToken(scopes = CONFIG.msal.scopes) {
         if (!this.account) {
             throw new Error('No account available');
         }
 
         try {
             const response = await this.msalInstance.acquireTokenSilent({
-                scopes: CONFIG.msal.scopes,
+                scopes,
                 account: this.account
             });
             
@@ -103,7 +127,7 @@ class AuthService {
             // Try interactive token acquisition using redirect
             try {
                 await this.msalInstance.acquireTokenRedirect({
-                    scopes: CONFIG.msal.scopes,
+                    scopes,
                     account: this.account
                 });
                 // After redirect, this will be handled by handleRedirectPromise

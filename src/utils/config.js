@@ -7,6 +7,10 @@ export const CONFIG = {
         redirectUri: window.location.origin, // Dynamic redirect URI
         scopes: [
             'https://graph.microsoft.com/DeviceManagementConfiguration.ReadWrite.All'
+        ],
+        // Requested incrementally, only when the user deploys App Protection policies
+        appProtectionScopes: [
+            'https://graph.microsoft.com/DeviceManagementApps.ReadWrite.All'
         ]
     },
 
@@ -109,7 +113,7 @@ export const CONFIG = {
     // Application settings
     app: {
         name: 'OIB Deployer',
-        version: '1.3.1',
+        version: '1.4.0',
         maxConcurrentDeployments: 5,
         defaultPollingInterval: 2000, // 2 seconds
         

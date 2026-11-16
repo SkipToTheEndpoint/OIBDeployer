@@ -31,6 +31,7 @@ const AuthComponent = ({ onLogin, isLoading, tenantInfo }) => {
               <h4>Required Permissions:</h4>
               <ul>
                 <li>DeviceManagementConfiguration.ReadWrite.All</li>
+                <li>DeviceManagementApps.ReadWrite.All (Requested separatelywhen deploying App Protection policies)</li>
               </ul>
             </div>
           </div>

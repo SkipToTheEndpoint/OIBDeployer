@@ -3,6 +3,8 @@ import {
   ArrowLeft, ShieldCheck, ShieldAlert, AlertTriangle,
   ChevronDown, ChevronRight, Loader, RefreshCw, CheckCircle, Download
 } from 'lucide-react';
+import { ConflictNotice, ConflictPairsNotice, ConflictTag } from './ConflictNotice';
+import { getPolicyConflicts, findDeployedConflictPairs } from '../utils/conflicts';
 
 /**
  * ValidationDashboard
@@ -12,6 +14,8 @@ import {
  * Props:
  *  - matchedPolicies   : array of policy entries from ComparisonDashboard
  *                        (status === 'current' | 'outdated' | 'newer')
+ *  - existingPolicies  : all tenant policies, used to detect OIB policies that
+ *                        conflict with each other (PolicyManifest "conflicts")
  *  - deprecatedPolicies: deployed tenant policies that a manifest marks deprecated
  *  - duplicatePolicies : array of OIB policies with more than one ambiguous
  *                        tenant match (status === 'duplicate') — shown as a
@@ -25,6 +29,7 @@ import {
  */
 const ValidationDashboard = ({
   matchedPolicies = [],
+  existingPolicies = [],
   deprecatedPolicies = [],
   duplicatePolicies = [],
   validationResults,
@@ -49,6 +54,7 @@ const ValidationDashboard = ({
     p.type === 'compliance'
   );
   const unsupported = matchedPolicies.filter(p => !supported.includes(p));
+  const deployedConflictPairs = findDeployedConflictPairs(matchedPolicies, existingPolicies);
 
   const validatedCount   = supported.filter(p => validationResults.has(p.name)).length;
   const compliantCount   = supported.filter(p => validationResults.get(p.name)?.status === 'compliant').length;
@@ -233,11 +239,16 @@ const ValidationDashboard = ({
     const mKey   = `${policy.name}-mismatches`;
     const oibKey = `${policy.name}-oibonly`;
     const tenKey = `${policy.name}-tenonly`;
+    const policyConflicts = getPolicyConflicts(policy, { tenantPolicies: existingPolicies });
 
     return (
-      <div key={policy.name} className={`policy-comparison-item ${policy.status === 'outdated' || policy.status === 'newer' ? policy.status : ''} ${result ? result.status : ''}`}>
+      <div key={policy.name} className={`policy-comparison-item ${policy.status === 'outdated' || policy.status === 'newer' ? policy.status : ''} ${result ? result.status : ''} ${policyConflicts.length ? 'conflicting' : ''}`}>
         <div className="policy-info">
-          <div className="policy-name">{policy.name.replace('.json', '')}</div>
+          <div className="policy-name">
+            {policy.name.replace('.json', '')}
+            {policyConflicts.length > 0 && <ConflictTag />}
+          </div>
+          <ConflictNotice conflicts={policyConflicts} />
           {policy.existingPolicy && (
             <div className="matched-policy-name">
               <span className="matched-label">Matched policy:</span>
@@ -415,6 +426,7 @@ const ValidationDashboard = ({
               ))}
             </div>
           )}
+          <ConflictPairsNotice pairs={deployedConflictPairs} />
         </div>
 
         {/* Summary Stats */}

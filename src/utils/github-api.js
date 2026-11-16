@@ -397,6 +397,7 @@ class GitHubAPI {
                             policy.skuRequirements = entry.skuRequirements || null;
                             policy.licenseRequirements = entry.licenseRequirements || null;
                             policy.lifecycleStatus = entry.status || 'active';
+                            policy.conflicts = manifestData.conflictsByOibId.get(policy.oibId) || [];
                             policy.replacements = (entry.supersededBy || [])
                                 .map(id => typeof id === 'string' ? id : id?.oibId)
                                 .filter(id => typeof id === 'string')
@@ -462,8 +463,47 @@ class GitHubAPI {
         }
     }
 
+    // Build a symmetric conflict lookup: oibId → [{ oibId, name, matchIds }].
+    // matchIds includes previous-version OIBIDs so an older deployed copy of a
+    // conflicting policy is still detected in the tenant.
+    buildConflictMap(entries, byOibId) {
+        const map = new Map();
+        const addPair = (fromId, toId) => {
+            if (fromId === toId) return;
+            if (!map.has(fromId)) map.set(fromId, new Map());
+            if (map.get(fromId).has(toId)) return;
+            const target = byOibId.get(toId);
+            const previousIds = (target?.previousVersions || [])
+                .map(previous => typeof previous === 'string' ? previous : previous?.oibId)
+                .filter(id => typeof id === 'string')
+                .map(id => id.toUpperCase());
+            map.get(fromId).set(toId, {
+                oibId: toId,
+                name: target?.name || toId,
+                matchIds: [toId, ...previousIds]
+            });
+        };
+
+        entries.forEach(entry => {
+            const entryId = entry.oibId?.toUpperCase();
+            if (!entryId) return;
+            (entry.conflicts || [])
+                .map(conflict => typeof conflict === 'string' ? conflict : conflict?.oibId)
+                .filter(id => typeof id === 'string')
+                .map(id => id.toUpperCase())
+                .forEach(conflictId => {
+                    addPair(entryId, conflictId);
+                    addPair(conflictId, entryId);
+                });
+        });
+
+        const result = new Map();
+        map.forEach((targets, id) => result.set(id, [...targets.values()]));
+        return result;
+    }
+
     // Fetch and cache the PolicyManifest.json for an OS/version (introduced in v3.8)
-    // Returns { manifest, byOibId: Map, byName: Map } or null for pre-3.8 branches
+    // Returns { manifest, byOibId: Map, byName: Map, conflictsByOibId: Map } or null for pre-3.8 branches
     async getPolicyManifest(osType, version = 'main') {
         const cacheKey = `manifest_${osType.toUpperCase()}_${version}`;
 
@@ -493,7 +533,8 @@ class GitHubAPI {
                 byName.set(entry.name, entry);
             });
 
-            const result = { manifest, byOibId, byName };
+            const conflictsByOibId = this.buildConflictMap(manifest.policies || [], byOibId);
+            const result = { manifest, byOibId, byName, conflictsByOibId };
 
             if (this.config.cacheEnabled) {
                 this.policyContentCache.set(cacheKey, { data: result, timestamp: Date.now() });
