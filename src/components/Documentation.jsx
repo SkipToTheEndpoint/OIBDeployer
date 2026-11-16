@@ -73,16 +73,26 @@ const Documentation = ({ onBack }) => {
               <li><strong>Endpoint Security:</strong> Antivirus, firewall, encryption, and attack surface reduction</li>
               <li><strong>Windows Update:</strong> Feature and driver update policies</li>
               <li><strong>Device Configuration:</strong> Basic device settings and restrictions</li>
+              <li><strong>App Protection:</strong> iOS and Android app data-protection policies</li>
             </ul>
           </div>
 
           <div className="faq-item">
             <h3>What permissions do I need?</h3>
-            <p>The OIB Deployer Enterprise Application only requires you to have access to the following Graph scope via Delegated permissions:</p>
+            <p>Standard policy deployment requires this Microsoft Graph delegated permission:</p>
             <ul>
               <li><code>DeviceManagementConfiguration.ReadWrite.All</code></li>
             </ul>
-            <p>If your account has Intune Administrator role (or higher), this will allow the above.</p>
+            <p>
+              Deploying App Protection policies also requires <code>DeviceManagementApps.ReadWrite.All</code>.
+              This permission is not requested during sign-in. When you select App Protection policies, the deployment
+              button changes to &quot;Prompt for Additional Permissions &amp; Deploy&quot; and requests it only after you
+              select that button.
+            </p>
+            <p>
+              If your tenant requires administrator approval, an Entra administrator must grant consent for the
+              additional permission. Once granted, the consent is retained for subsequent App Protection deployments.
+            </p>
           </div>
 
           <div className="faq-item">
@@ -229,6 +239,16 @@ const Documentation = ({ onBack }) => {
           </div>
 
           <div className="tech-info">
+            <h3>Conflicting Policies</h3>
+            <p>
+              Some OIB policies are marked as conflicting with each other in <code>PolicyManifest.json</code>. 
+              When two conflicting policies are deployed in your tenant, or one is selected for deployment while the other is 
+              deployed or also selected, both are flagged with a red <em>Conflict</em> highlight in the New, Existing and Validation workflows. 
+              Conflicts are informational only &mdash; they never block deployment.
+            </p>
+          </div>
+
+          <div className="tech-info">
             <h3>Data Privacy</h3>
             <p>
               This application runs entirely in your browser. No policy data or tenant information is stored on external servers. 
@@ -287,7 +307,7 @@ const Documentation = ({ onBack }) => {
           <div className="info-box">
             <Info size={16} />
             <div>
-              <p><strong>OIB Deployer Version:</strong> v1.3.1</p>
+              <p><strong>OIB Deployer Version:</strong> v1.4.0</p>
               <p><strong>Last Updated:</strong> November 2026</p>
               <p><strong>Compatible with:</strong> OpenIntuneBaseline v3.0+ (OIBID matching and licensing-based filtering require v3.8+)</p>
             </div>

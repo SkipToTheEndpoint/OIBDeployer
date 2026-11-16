@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BarChart3, TrendingUp, AlertTriangle, CheckCircle, Plus, ArrowLeft, RefreshCw, Copy } from 'lucide-react';
+import { ConflictNotice, ConflictPairsNotice, ConflictTag } from './ConflictNotice';
+import { getPolicyConflicts, findDeployedConflictPairs, findSelectedConflictPairs } from '../utils/conflicts';
 
 const ComparisonDashboard = ({ 
   existingPolicies, 
@@ -363,6 +365,14 @@ const ComparisonDashboard = ({
     );
   }
 
+  const deployedPolicies = Object.values(comparisonData.byOS).flatMap(osData => [
+    ...(osData.current || []),
+    ...(osData.outdated || []),
+    ...(osData.newer || [])
+  ]);
+  const deployedConflictPairs = findDeployedConflictPairs(deployedPolicies, existingPolicies || []);
+  const selectedConflictPairs = findSelectedConflictPairs(selectedForDeployment);
+
   return (
     <div className="wizard-container comparison-dashboard">
       <div className="comparison-content">
@@ -390,6 +400,11 @@ const ComparisonDashboard = ({
               ))}
             </div>
           )}
+          <ConflictPairsNotice pairs={deployedConflictPairs} />
+          <ConflictPairsNotice
+            pairs={selectedConflictPairs}
+            message="Policies selected for deployment conflict with each other - deploy only one of each pair:"
+          />
         </div>
 
         {/* Summary Stats */}
@@ -596,11 +611,17 @@ const ComparisonDashboard = ({
                       </div>
 
                       <div className="policy-type-policies">
-                        {policies.map((policy, index) => (
-                          <div key={`${policy.name}-${osType}-${index}`} className={`policy-comparison-item ${policy.status}`}>
+                        {policies.map((policy, index) => {
+                          const policyConflicts = getPolicyConflicts(policy, {
+                            tenantPolicies: existingPolicies || [],
+                            selectedPolicies: selectedForDeployment
+                          });
+                          return (
+                          <div key={`${policy.name}-${osType}-${index}`} className={`policy-comparison-item ${policy.status} ${policyConflicts.length ? 'conflicting' : ''}`}>
                             <div className="policy-info">
                               <div className="policy-name">
                                 {policy.name.replace('.json', '')}
+                                {policyConflicts.length > 0 && <ConflictTag />}
                                 {policy.skuRequirements === 'Enterprise' && (
                                   <span className="req-tag req-tag--enterprise" title="Requires Windows Enterprise SKU">Enterprise</span>
                                 )}
@@ -614,6 +635,7 @@ const ComparisonDashboard = ({
                                   <span className="matched-name">{policy.existingPolicy.displayName || policy.existingPolicy.name}</span>
                                 </div>
                               )}
+                              <ConflictNotice conflicts={policyConflicts} />
                               {policy.lifecycleStatus === 'deprecated' && (
                                 <div className="deprecation-notice">
                                   <AlertTriangle size={14} />
@@ -693,7 +715,8 @@ const ComparisonDashboard = ({
                               </div>
                             )}
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   ));

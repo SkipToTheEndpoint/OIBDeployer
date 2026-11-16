@@ -19,6 +19,7 @@ import githubAPI from './utils/github-api';
 import { getTenantDisplayName, isValidTenantId } from './utils/tenant';
 import { applyTenantVariablesToPolicy } from './utils/tenant-variables';
 import { getPolicySources } from './utils/release-manifest';
+import { CONFIG } from './utils/config';
 import oibLogo from '../assets/oib-logo.svg';
 import './styles/App.css';
 
@@ -365,6 +366,14 @@ function App() {
     }
 
     try {
+      const hasAppProtection = policies.some(policy =>
+        policy.policyType === 'AppProtection' || policy.policyType === 'AppProtectionPolicies');
+      if (hasAppProtection) {
+        // This is deliberately before any asynchronous work. Browser popup protection
+        // requires the consent window to open directly from the Deploy click.
+        await authService.ensureScopes(CONFIG.msal.appProtectionScopes, true);
+      }
+
       setIsLoading(true);
       setError(null);
       // Change step to 'deploy' to show deployment progress
@@ -852,6 +861,7 @@ function App() {
 
         {isAuthenticated && !showDocumentation && currentStep === 'wizard' && wizardStep === 'validation' && (
           <ValidationDashboard
+            existingPolicies={existingPolicies}
             matchedPolicies={(() => {
               if (!comparisonData?.byOS) return [];
               const all = [];

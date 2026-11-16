@@ -40,8 +40,12 @@ class GraphAPI {
     }
 
     // Helper method to get authorization headers
-    async getAuthHeaders() {
-        const token = await authService.getAccessToken();
+    async getAuthHeaders(endpoint = '') {
+        const needsAppScope = endpoint.startsWith('/deviceAppManagement');
+        const scopes = needsAppScope
+            ? [...CONFIG.msal.scopes, ...CONFIG.msal.appProtectionScopes]
+            : CONFIG.msal.scopes;
+        const token = await authService.getAccessToken(scopes);
         return {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -56,7 +60,7 @@ class GraphAPI {
 
             const options = {
                 method,
-                headers: await this.getAuthHeaders()
+                headers: await this.getAuthHeaders(endpoint)
             };
 
             if (body && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
@@ -1129,7 +1133,7 @@ class GraphAPI {
         const results = [];
         const total = policiesData.length;
         console.log(`Starting deployment of ${total} policies...`);
-        
+
         for (let i = 0; i < policiesData.length; i++) {
             const policyData = policiesData[i];
             const policyName = policyData.fileName || policyData.displayName || 'Unknown Policy';

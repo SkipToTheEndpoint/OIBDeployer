@@ -9,6 +9,9 @@ const PolicySelector = ({ existingPolicies, onPolicySelection, onDeploy, isLoadi
   const [selectedOS, setSelectedOS] = useState('');
   const [availablePolicies, setAvailablePolicies] = useState({});
   const [selectedPolicies, setSelectedPolicies] = useState([]);
+  const requiresAdditionalPermissions = selectedPolicies.some(policy =>
+    policy.policyType === 'AppProtection' || policy.policyType === 'AppProtectionPolicies'
+  );
   const [searchFilter, setSearchFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -683,9 +686,16 @@ const PolicySelector = ({ existingPolicies, onPolicySelection, onDeploy, isLoadi
             onClick={() => onDeploy(selectedPolicies)}
             disabled={isLoading || selectedPolicies.length === 0}
             className="btn btn-primary btn-large"
+            title={requiresAdditionalPermissions
+              ? 'Prompts for DeviceManagementApps.ReadWrite.All before deployment'
+              : undefined}
           >
             <Download className="btn-icon" />
-            {isLoading ? 'Deploying...' : `Deploy ${selectedPolicies.length} Policies`}
+            {isLoading
+              ? 'Deploying...'
+              : requiresAdditionalPermissions
+                ? `Prompt for Additional Permissions & Deploy (${selectedPolicies.length})`
+                : `Deploy ${selectedPolicies.length} Policies`}
           </button>
         </div>
       )}
